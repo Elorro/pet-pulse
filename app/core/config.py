@@ -5,8 +5,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     environment: str = "development"
-    database_url_async: str
-    secret_key: str
+    database_url_async: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/postgres"
+    secret_key: str = "dev-secret-change-me"
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
 
