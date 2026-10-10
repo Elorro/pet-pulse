@@ -1,0 +1,6 @@
+
+## Backend y Almacenamiento
+
+- El vector embedding se guarda en una columna `embedding vector(128)` o según dimensión elegida.
+- La búsqueda se realiza con operadores de pgvector, por ejemplo:
+

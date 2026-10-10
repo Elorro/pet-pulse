@@ -1,0 +1,11 @@
+
+Flujo en código:
+
+1. Obtener imagen desde cámara o galería.
+2. Preprocesar con `package:image`.
+3. Cargar el modelo con `tflite_flutter` o `onnxruntime`.
+4. Ejecutar inferencia para obtener el embedding.
+5. Enviar el embedding al endpoint `/api/v1/pets/identify` en el backend.
+
+Ejemplo conceptual:
+
