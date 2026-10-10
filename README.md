@@ -2,6 +2,10 @@
 
 Red social de código abierto para mascotas orientada al rescate, foro y adopción, con un sistema biométrico avanzado de reconocimiento canino/felino mediante embeddings vectoriales.
 
+> **Nota para desarrollo local:**  
+> Por defecto, el entorno de desarrollo usa **SQLite** para simplificar las pruebas.  
+> La configuración de producción puede seguir usando **PostgreSQL + pgvector** sin cambios adicionales.
+
 ## 🚀 Características Principales (Fases)
 
 - **Fase 1 (Foro MVP):** Publicaciones, comentarios, reacciones y compartidos optimizados.
@@ -11,7 +15,9 @@ Red social de código abierto para mascotas orientada al rescate, foro y adopci�
 ## 🛠️ Stack Tecnológico (Costo $0 USD de Infraestructura)
 
 - **Backend API:** Python 3.11+ con FastAPI (asíncrono, robusto y tipado).
-- **Base de Datos & Vector Store:** PostgreSQL 15+ con extensión pgvector (Capa gratuita en Supabase).
+- **Base de Datos & Vector Store:**
+  - **Desarrollo local:** SQLite (sin servidor, ideal para pruebas)
+  - **Producción/Cloud:** PostgreSQL 15+ con extensión pgvector (Capa gratuita en Supabase)
 - **Frontend Móvil:** Flutter (Dart) para compilación nativa en Android (F-Droid/APK) e iOS.
 - **Cómputo de IA en el Dispositivo (Edge ML):** Exportación de modelos a formatos ONNX / TFLite para ejecución local en el celular del usuario final, liberando de costos al servidor web.
 
