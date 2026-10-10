@@ -66,4 +66,5 @@ class SQLAlchemyUserRepository(UserRepository):
             email=user_orm.email,
             hashed_password=user_orm.hashed_password,
             created_at=user_orm.created_at,
+            updated_at=user_orm.created_at,  # El MVP no registra edición por separado
         )
