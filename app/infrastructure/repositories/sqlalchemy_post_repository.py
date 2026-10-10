@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.entities.post import Post
 from app.domain.repositories.post_repository import PostRepository
-from app.infrastructure.db.post_model import PostORM
+from app.infrastructure.db.models.post_model import PostModel
 
 
 class SQLAlchemyPostRepository(PostRepository):
@@ -26,13 +26,13 @@ class SQLAlchemyPostRepository(PostRepository):
     async def save(self, post: Post) -> None:
         """Persiste una entidad de dominio `Post` como registro ORM.
 
-        Convierte la entidad en `PostORM` y la agrega a la sesión actual,
+        Convierte la entidad en `PostModel` y la agrega a la sesión actual,
         realizando commit al finalizar.
 
         Args:
             post: Entidad de dominio de la publicación a guardar.
         """
-        post_orm = PostORM(
+        post_orm = PostModel(
             id=post.id,
             author_id=post.author_id,
             content=post.content,
@@ -56,8 +56,8 @@ class SQLAlchemyPostRepository(PostRepository):
             Lista de entidades `Post` correspondientes a la página solicitada.
         """
         stmt = (
-            select(PostORM)
-            .order_by(PostORM.created_at.desc())
+            select(PostModel)
+            .order_by(PostModel.created_at.desc())
             .limit(limit)
             .offset(offset)
         )

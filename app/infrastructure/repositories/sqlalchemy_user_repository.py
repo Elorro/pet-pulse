@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.entities.user import User
 from app.domain.repositories.user_repository import UserRepository
-from app.infrastructure.db.user_model import UserORM
+from app.infrastructure.db.models.user_model import UserModel
 
 
 class SQLAlchemyUserRepository(UserRepository):
@@ -25,13 +25,13 @@ class SQLAlchemyUserRepository(UserRepository):
     async def save(self, user: User) -> None:
         """Persiste una entidad de dominio `User` como registro ORM.
 
-        Convierte la entidad en `UserORM` y la agrega a la sesión actual,
+        Convierte la entidad en `UserModel` y la agrega a la sesión actual,
         realizando commit al finalizar.
 
         Args:
             user: Entidad de dominio del usuario a guardar.
         """
-        user_orm = UserORM(
+        user_orm = UserModel(
             id=user.id,
             username=user.username,
             email=user.email,
@@ -53,7 +53,7 @@ class SQLAlchemyUserRepository(UserRepository):
         Returns:
             Instancia de `User` si existe, `None` en caso contrario.
         """
-        stmt = select(UserORM).where(UserORM.email == email)
+        stmt = select(UserModel).where(UserModel.email == email)
         result = await self._session.execute(stmt)
         user_orm = result.scalar_one_or_none()
 
