@@ -4,6 +4,7 @@ Se crea un cliente por operación para no compartir estado de sesión entre
 peticiones: el SDK guarda la sesión del último `sign_in` en el cliente.
 """
 
+import logging
 from uuid import UUID
 
 from supabase import AsyncClient, AsyncClientOptions, acreate_client
@@ -16,6 +17,8 @@ from app.application.interfaces.auth_service import (
     AuthSession,
     SignUpResult,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _to_session(session: Session) -> AuthSession:
@@ -62,7 +65,15 @@ class SupabaseAuthService(AuthService):
                 }
             )
         except AuthError as exc:
+            logger.warning(
+                "Supabase Auth rechazó signup (status=%s, code=%s)",
+                getattr(exc, "status", None),
+                getattr(exc, "code", None),
+            )
             raise _translate(exc) from exc
+        except Exception:
+            logger.exception("Error inesperado al llamar Supabase Auth signup")
+            raise
         if response.user is None:
             raise AuthServiceError("El proveedor no devolvió un usuario", status_code=502)
         return SignUpResult(

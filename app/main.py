@@ -85,7 +85,11 @@ async def add_security_headers(
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "no-referrer"
-    response.headers["Content-Security-Policy"] = "default-src 'self'"
+    # FastAPI sirve Swagger/ReDoc con recursos externos e inicialización inline.
+    # La CSP estricta de la API bloquearía esos recursos y dejaría /docs en blanco.
+    docs_paths = {"/docs", "/redoc", "/docs/oauth2-redirect"}
+    if request.url.path not in docs_paths:
+        response.headers["Content-Security-Policy"] = "default-src 'self'"
 
     environment = getattr(settings, "environment", "development")
     if environment == "production" and request.url.scheme == "http":

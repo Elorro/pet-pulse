@@ -1,5 +1,6 @@
 from functools import lru_cache
 
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -9,7 +10,11 @@ class Settings(BaseSettings):
 
     # Supabase Auth. El backend no emite tokens: solo verifica los de Supabase.
     supabase_url: str = ""
-    supabase_anon_key: str = ""  # Clave pública (anon/publishable) para el SDK.
+    supabase_anon_key: str = Field(
+        default="",
+        validation_alias=AliasChoices("SUPABASE_ANON_KEY", "SUPABASE_KEY"),
+        description="Clave pública (anon/publishable) para el SDK.",
+    )
     supabase_jwt_secret: str | None = None  # Solo para proyectos legados con HS256.
     supabase_jwt_audience: str = "authenticated"
 
