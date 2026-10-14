@@ -1,79 +1,40 @@
-"""Router y esquemas para autenticación de usuarios.
+"""Router de identidad.
 
-Define el endpoint POST /register para crear una cuenta de usuario,
-aplicando validación estricta de Pydantic, hash de contraseña mediante bcrypt
-y exclusión de credenciales en las respuestas.
+El registro e inicio de sesión ocurren en Supabase Auth desde la app móvil.
+Este router solo expone el perfil asociado al token verificado.
 """
 
-import uuid
 from datetime import datetime
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
-from pydantic import BaseModel, EmailStr, Field
+from fastapi import APIRouter, Depends
+from pydantic import BaseModel
 
-from app.api.deps import get_user_repository
-from app.core.security import hash_password
+from app.api.deps import get_current_profile
 from app.domain.entities.user import User
-from app.domain.repositories.user_repository import UserRepository
-
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-class UserCreate(BaseModel):
-    """Esquema de entrada para registrar un nuevo usuario.
+class ProfileResponse(BaseModel):
+    """Perfil público del usuario autenticado."""
 
-    Valida los campos obligatorios con restricciones de longitud y formato.
-    """
-
-    username: str = Field(..., min_length=3, max_length=50)
-    email: EmailStr
-    password: str = Field(..., min_length=8, max_length=128)
-
-
-class UserResponse(BaseModel):
-    """Esquema de salida con datos seguros del usuario registrado.
-
-    Excluye `hashed_password` para no exponer credenciales en la API.
-    """
-
-    id: uuid.UUID
+    id: UUID
     username: str
-    email: EmailStr
+    email: str | None
     created_at: datetime
 
 
-@router.post(
-    "/register",
-    response_model=UserResponse,
-    status_code=status.HTTP_201_CREATED,
-    summary="Registrar usuario",
-    description="Crea una cuenta de usuario con contraseña hasheada con bcrypt.",
+@router.get(
+    "/me",
+    response_model=ProfileResponse,
+    summary="Perfil del usuario autenticado",
+    description="Devuelve el perfil asociado al JWT de Supabase, creándolo en la primera llamada.",
 )
-async def register(
-    payload: UserCreate,
-    user_repo: UserRepository = Depends(get_user_repository),
-) -> UserResponse:
-    """Registra un nuevo usuario en el sistema.
-
-    Args:
-        payload: Datos validados para la creación del usuario.
-        user_repo: Repositorio de usuarios inyectado.
-
-    Returns:
-        Objeto `UserResponse` con los datos públicos del usuario creado.
-    """
-    user = User(
-        id=uuid.uuid4(),
-        username=payload.username,
-        email=payload.email,
-        hashed_password=hash_password(payload.password),
-        created_at=datetime.utcnow(),
-    )
-    await user_repo.save(user)
-    return UserResponse(
-        id=user.id,
-        username=user.username,
-        email=user.email,
-        created_at=user.created_at,
+async def me(profile: User = Depends(get_current_profile)) -> ProfileResponse:
+    return ProfileResponse(
+        id=profile.id,
+        username=profile.username,
+        email=profile.email,
+        created_at=profile.created_at,
     )

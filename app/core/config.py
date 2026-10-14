@@ -6,9 +6,11 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     environment: str = "development"
     database_url_async: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/postgres"
-    secret_key: str = "dev-secret-change-me"
-    algorithm: str = "HS256"
-    access_token_expire_minutes: int = 30
+
+    # Supabase Auth. El backend no emite tokens: solo verifica los de Supabase.
+    supabase_url: str = ""
+    supabase_jwt_secret: str | None = None  # Solo para proyectos legados con HS256.
+    supabase_jwt_audience: str = "authenticated"
 
     model_config = SettingsConfigDict(
         env_file=".env",

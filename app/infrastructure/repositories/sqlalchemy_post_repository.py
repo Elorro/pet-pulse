@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.entities.post import Post
 from app.domain.repositories.post_repository import PostRepository
+from app.infrastructure.db.datetime_utils import as_utc
 from app.infrastructure.db.models.post_model import PostModel
 
 
@@ -69,8 +70,8 @@ class SQLAlchemyPostRepository(PostRepository):
                 id=post_orm.id,
                 author_id=post_orm.author_id,
                 content=post_orm.content,
-                created_at=post_orm.created_at,
-                updated_at=post_orm.created_at,  # El MVP no registra edición por separado
+                created_at=as_utc(post_orm.created_at),
+                updated_at=as_utc(post_orm.created_at),  # El MVP no registra edición por separado
             )
             for post_orm in post_orms
         ]

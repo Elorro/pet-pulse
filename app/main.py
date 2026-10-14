@@ -5,17 +5,17 @@ agrega cabeceras de seguridad básicas y registra los routers versionados
 de autenticación y publicaciones.
 """
 
+from collections.abc import Callable
 from contextlib import asynccontextmanager
-from typing import Callable
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import RedirectResponse, Response
 
+import app.infrastructure.db.models
 from app.api.v1.routes import auth, posts
 from app.core.config import get_settings
 from app.infrastructure.db.base import Base
-import app.infrastructure.db.models  # noqa: F401
 from app.infrastructure.db.session import engine
 
 settings = get_settings()

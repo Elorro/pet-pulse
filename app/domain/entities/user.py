@@ -5,20 +5,21 @@ from uuid import UUID
 
 @dataclass
 class User:
-    """Representa a un usuario registrado en la red social de mascotas.
+    """Perfil público de un usuario autenticado mediante Supabase Auth.
+
+    Las credenciales viven en Supabase (`auth.users`); aquí solo se guarda
+    el perfil de la aplicación, cuyo `id` coincide con el UUID de Supabase.
 
     Attributes:
-        id: Identificador único universal del usuario.
+        id: UUID del usuario en Supabase Auth.
         username: Nombre de usuario público.
-        email: Correo electrónico del usuario.
-        hashed_password: Contraseña cifrada con bcrypt.
-        created_at: Fecha y hora de creación del registro.
-        updated_at: Fecha y hora de la última actualización del registro.
+        email: Correo electrónico, si el proveedor de identidad lo expone.
+        created_at: Fecha y hora de creación del perfil.
+        updated_at: Fecha y hora de la última actualización del perfil.
     """
 
     id: UUID
     username: str
-    email: str
-    hashed_password: str
+    email: str | None
     created_at: datetime
     updated_at: datetime
