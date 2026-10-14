@@ -6,21 +6,32 @@ identidad del usuario autenticado mediante Supabase Auth.
 
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
+from functools import lru_cache
 
 from fastapi import Depends, HTTPException, status
 from fastapi.concurrency import run_in_threadpool
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.application.interfaces.auth_service import AuthService
 from app.core.auth import AuthUser, InvalidTokenError, SupabaseTokenVerifier, get_token_verifier
+from app.core.config import get_settings
 from app.domain.entities.user import User
 from app.domain.repositories.post_repository import PostRepository
 from app.domain.repositories.user_repository import UserRepository
 from app.infrastructure.db.session import async_session_factory
 from app.infrastructure.repositories.sqlalchemy_post_repository import SQLAlchemyPostRepository
 from app.infrastructure.repositories.sqlalchemy_user_repository import SQLAlchemyUserRepository
+from app.infrastructure.services.supabase_auth_service import SupabaseAuthService
 
 bearer_scheme = HTTPBearer(auto_error=False)
+
+
+@lru_cache
+def get_auth_service() -> AuthService:
+    """Proveedor de identidad (Supabase) usado por los endpoints de /auth."""
+    settings = get_settings()
+    return SupabaseAuthService(settings.supabase_url, settings.supabase_anon_key)
 
 
 async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
@@ -65,6 +76,19 @@ async def get_current_user(
         return await run_in_threadpool(verifier.verify, credentials.credentials)
     except InvalidTokenError as exc:
         raise unauthorized from exc
+
+
+async def get_bearer_token(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+) -> str:
+    """Devuelve el token crudo del header `Authorization` o responde 401."""
+    if credentials is None or credentials.scheme.lower() != "bearer":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token de acceso ausente",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return credentials.credentials
 
 
 def _default_username(auth_user: AuthUser) -> str:
