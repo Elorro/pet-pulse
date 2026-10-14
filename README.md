@@ -15,6 +15,10 @@ Red social de código abierto para mascotas orientada al rescate, foro y adopci�
 - **Frontend Móvil:** Flutter (Dart) para compilación nativa en Android (F-Droid/APK) e iOS.
 - **Cómputo de IA en el Dispositivo (Edge ML):** Exportación de modelos a formatos ONNX / TFLite para ejecución local en el celular del usuario final, liberando de costos al servidor web.
 
+## 🧭 Guía de Configuración
+
+Ver [docs/SETUP.md](docs/SETUP.md) para el estado actual del backend, la decisión de arquitectura con Supabase y los pasos de instalación.
+
 ## 🛡️ Pilares de Seguridad de Producción Real
 
 El sistema está diseñado bajo una lista estricta de **20 parámetros de seguridad industrial**, que incluyen:
