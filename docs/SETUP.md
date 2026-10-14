@@ -5,7 +5,7 @@ how PetPulse will use Supabase, and the steps to get a working development
 environment. It is the checklist for bringing the repo from "skeleton" to
 "runnable". Update it as steps are completed.
 
-Last updated: 2026-10-14
+Last updated: 2026-10-14 (revised after PR #3)
 
 ---
 
@@ -50,18 +50,35 @@ install, run, or pass tests yet.
 Supabase provides **auth, storage, and the Postgres database**. FastAPI is the
 **only API the mobile app calls for application data**.
 
-### Auth: Supabase owns it
+### Auth: Supabase owns it, FastAPI fronts it
 
-- Flutter signs in through the Supabase SDK (email/password, OAuth, magic
-  links, refresh tokens).
-- Every request to FastAPI carries the Supabase access token as a
-  `Authorization: Bearer <jwt>` header.
-- FastAPI verifies the token against the project's JWKS endpoint using PyJWT
-  and exposes a `get_current_user` dependency that returns the auth user ID.
-- The hand-rolled `register` endpoint, bcrypt hashing, and `passlib` are
-  removed.
-- The `users` table becomes a `profiles` table keyed by the Supabase
-  `auth.users.id`, holding only public profile data (username, avatar, bio).
+The mobile app talks **only to this API**. FastAPI exposes the auth endpoints
+and calls the official Supabase SDK (`supabase-py`) behind the scenes. The
+backend never stores passwords or mints tokens.
+
+| Endpoint | Backed by |
+|---|---|
+| `POST /api/v1/auth/signup` | `auth.sign_up` (username stored in user metadata) |
+| `POST /api/v1/auth/login` | `auth.sign_in_with_password` |
+| `POST /api/v1/auth/refresh` | `auth.refresh_session` |
+| `POST /api/v1/auth/logout` | Supabase logout call, revokes refresh tokens |
+| `GET /api/v1/auth/me` | Local profile, created lazily on first call |
+
+The SDK sits behind an `AuthService` port
+(`app/application/interfaces/auth_service.py`) with a `SupabaseAuthService`
+adapter, so routes are testable without network.
+
+Protected routes use `get_current_user`, which verifies the Supabase JWT
+locally against the project's JWKS endpoint with PyJWT (ES256/RS256, with
+optional HS256 fallback for legacy projects). No network call per request.
+
+The `users` table is a profile table keyed by the Supabase `auth.users.id`,
+holding only public data (username, email, timestamps). The row is created
+the first time an authenticated user calls the API.
+
+Flutter flow: sign up or log in through this API, store the access and
+refresh tokens, send `Authorization: Bearer <access_token>` on every request,
+and call `/auth/refresh` on a 401.
 
 ### Storage: direct from the phone
 
@@ -83,9 +100,9 @@ Supabase provides **auth, storage, and the Postgres database**. FastAPI is the
 
 ### What not to do
 
-- Do not let Flutter query tables directly through the Supabase client. That
-  splits authorization between RLS policies and FastAPI checks. Keep the
-  Supabase SDK in Flutter limited to sign-in and uploads.
+- Do not let Flutter talk to Supabase directly for auth or data. All auth
+  goes through this API so there is one place to change providers or add
+  rules. The only direct Flutter-to-Supabase call is the storage upload.
 
 ### Alternative considered
 
@@ -186,6 +203,7 @@ Remove:
 Add:
 
 - `pyjwt[crypto]` for verifying Supabase tokens against JWKS
+- `supabase` (supabase-py) for the signup/login/refresh/logout endpoints
 
 Keep: `fastapi`, `uvicorn`, `pydantic`, `pydantic-settings`,
 `sqlalchemy[asyncio]`, `asyncpg`, `pgvector`, `python-dotenv`.
@@ -216,7 +234,9 @@ ENVIRONMENT=development
 
 # Supabase
 SUPABASE_URL=https://<ref>.supabase.co
-SUPABASE_JWKS_URL=https://<ref>.supabase.co/auth/v1/.well-known/jwks.json
+SUPABASE_ANON_KEY=<publishable/anon key from Project Settings > API Keys>
+# Only for legacy projects that sign JWTs with HS256:
+# SUPABASE_JWT_SECRET=
 DATABASE_URL_ASYNC=postgresql+asyncpg://postgres.<ref>:<password>@<host>:5432/postgres
 
 # API
@@ -234,15 +254,15 @@ Once Supabase is created and linked:
 
 - [ ] Rewrite `pyproject.toml` for uv; `uv sync`.
 - [ ] Update `.gitignore`, add ruff/mypy config, pre-commit, CI workflow.
-- [ ] Update `Settings` with Supabase fields and CORS origins; delete JWT
-      issuance fields.
-- [ ] Fix `session.py` to build the engine from `Settings`.
-- [ ] Add `app/infrastructure/db/models/` with `ProfileModel`, `PostModel`,
-      `CommentModel`.
-- [ ] Add `get_current_user` dependency verifying Supabase JWTs via JWKS.
-- [ ] Remove `auth/register`, `core/security.py`, and the `hashed_password`
-      field. Rename `User` to `Profile`.
-- [ ] Add `POST /api/v1/posts/` (authenticated).
+- [x] Update `Settings` with Supabase fields; delete JWT issuance fields. (PR #3)
+- [x] Fix `session.py` to build the engine from `Settings`.
+- [x] Add `app/infrastructure/db/models/` with user and post models.
+- [x] Add `get_current_user` dependency verifying Supabase JWTs via JWKS. (PR #3)
+- [x] Replace `auth/register` with SDK-backed signup/login/refresh/logout;
+      remove `core/security.py` and `hashed_password`. (PR #3)
+- [x] Add `POST /api/v1/posts/` (authenticated). (PR #3)
+- [ ] Move CORS origins into `Settings`.
+- [ ] Add `CommentModel` and comment endpoints.
 - [ ] Write the first migration (section 3.4) and `supabase db push`.
 - [ ] Add integration tests for register-free auth flow and posts CRUD.
 
