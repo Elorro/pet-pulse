@@ -1,31 +1,41 @@
 """Módulo de inyección de dependencias para la capa de API de FastAPI.
 
-Proporciona dependencias reutilizables para obtener la sesión de base de datos
-y las implementaciones concretas de los repositorios, siguiendo el principio
-de inversión de dependencias y garantizando una gestión limpia de recursos.
+Proporciona la sesión de base de datos, los repositorios concretos y la
+identidad del usuario autenticado mediante Supabase Auth.
 """
 
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
+from datetime import UTC, datetime
+from functools import lru_cache
 
-from fastapi import Depends
+from fastapi import Depends, HTTPException, status
+from fastapi.concurrency import run_in_threadpool
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.application.interfaces.auth_service import AuthService
+from app.core.auth import AuthUser, InvalidTokenError, SupabaseTokenVerifier, get_token_verifier
+from app.core.config import get_settings
+from app.domain.entities.user import User
 from app.domain.repositories.post_repository import PostRepository
 from app.domain.repositories.user_repository import UserRepository
 from app.infrastructure.db.session import async_session_factory
 from app.infrastructure.repositories.sqlalchemy_post_repository import SQLAlchemyPostRepository
 from app.infrastructure.repositories.sqlalchemy_user_repository import SQLAlchemyUserRepository
+from app.infrastructure.services.supabase_auth_service import SupabaseAuthService
+
+bearer_scheme = HTTPBearer(auto_error=False)
+
+
+@lru_cache
+def get_auth_service() -> AuthService:
+    """Proveedor de identidad (Supabase) usado por los endpoints de /auth."""
+    settings = get_settings()
+    return SupabaseAuthService(settings.supabase_url, settings.supabase_anon_key)
 
 
 async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
-    """Inyecta una sesión asíncrona de SQLAlchemy.
-
-    Crea una sesión a partir de la fábrica asíncrona, la entrega al endpoint
-    mediante `yield` y garantiza su cierre en el bloque `finally`.
-
-    Yields:
-        AsyncSession: Sesión de base de datos lista para usar.
-    """
+    """Inyecta una sesión asíncrona de SQLAlchemy y garantiza su cierre."""
     session = async_session_factory()
     try:
         yield session
@@ -36,26 +46,79 @@ async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
 async def get_user_repository(
     session: AsyncSession = Depends(get_async_session),
 ) -> UserRepository:
-    """Inyecta el repositorio de usuarios configurado con la sesión activa.
-
-    Args:
-        session: Sesión asíncrona proporcionada por `get_async_session`.
-
-    Returns:
-        Instancia de `SQLAlchemyUserRepository` que implementa `UserRepository`.
-    """
     return SQLAlchemyUserRepository(async_session=session)
 
 
 async def get_post_repository(
     session: AsyncSession = Depends(get_async_session),
 ) -> PostRepository:
-    """Inyecta el repositorio de publicaciones configurado con la sesión activa.
-
-    Args:
-        session: Sesión asíncrona proporcionada por `get_async_session`.
-
-    Returns:
-        Instancia de `SQLAlchemyPostRepository` que implementa `PostRepository`.
-    """
     return SQLAlchemyPostRepository(async_session=session)
+
+
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    verifier: SupabaseTokenVerifier = Depends(get_token_verifier),
+) -> AuthUser:
+    """Verifica el JWT de Supabase enviado en `Authorization: Bearer`.
+
+    Responde 401 si falta el token o no supera la verificación. La
+    verificación se ejecuta en un threadpool porque la descarga del JWKS
+    es síncrona.
+    """
+    unauthorized = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Token de acceso inválido o ausente",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    if credentials is None or credentials.scheme.lower() != "bearer":
+        raise unauthorized
+    try:
+        return await run_in_threadpool(verifier.verify, credentials.credentials)
+    except InvalidTokenError as exc:
+        raise unauthorized from exc
+
+
+async def get_bearer_token(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+) -> str:
+    """Devuelve el token crudo del header `Authorization` o responde 401."""
+    if credentials is None or credentials.scheme.lower() != "bearer":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token de acceso ausente",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return credentials.credentials
+
+
+def _default_username(auth_user: AuthUser) -> str:
+    metadata = auth_user.claims.get("user_metadata") or {}
+    username = metadata.get("username")
+    if isinstance(username, str) and username.strip():
+        return username.strip()[:50]
+    return f"user_{auth_user.id.hex[:12]}"
+
+
+async def get_current_profile(
+    auth_user: AuthUser = Depends(get_current_user),
+    user_repo: UserRepository = Depends(get_user_repository),
+) -> User:
+    """Devuelve el perfil local del usuario autenticado, creándolo si no existe.
+
+    Supabase gestiona el registro; la fila en `users` se crea de forma
+    perezosa la primera vez que un usuario autenticado llama a la API.
+    """
+    existing = await user_repo.get_by_id(auth_user.id)
+    if existing is not None:
+        return existing
+
+    now = datetime.now(UTC)
+    user = User(
+        id=auth_user.id,
+        username=_default_username(auth_user),
+        email=auth_user.email,
+        created_at=now,
+        updated_at=now,
+    )
+    await user_repo.save(user)
+    return user

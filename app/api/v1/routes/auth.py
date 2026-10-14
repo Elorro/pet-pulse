@@ -1,79 +1,169 @@
-"""Router y esquemas para autenticación de usuarios.
+"""Router de autenticación.
 
-Define el endpoint POST /register para crear una cuenta de usuario,
-aplicando validación estricta de Pydantic, hash de contraseña mediante bcrypt
-y exclusión de credenciales en las respuestas.
+La app móvil solo habla con esta API. Los endpoints de registro, inicio de
+sesión, renovación y cierre delegan en Supabase Auth mediante su SDK; el
+backend nunca almacena contraseñas ni emite tokens propios.
 """
 
-import uuid
 from datetime import datetime
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, EmailStr, Field
 
-from app.api.deps import get_user_repository
-from app.core.security import hash_password
+from app.api.deps import get_auth_service, get_bearer_token, get_current_profile
+from app.application.interfaces.auth_service import (
+    AuthService,
+    AuthServiceError,
+    AuthSession,
+)
 from app.domain.entities.user import User
-from app.domain.repositories.user_repository import UserRepository
-
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-class UserCreate(BaseModel):
-    """Esquema de entrada para registrar un nuevo usuario.
-
-    Valida los campos obligatorios con restricciones de longitud y formato.
-    """
-
-    username: str = Field(..., min_length=3, max_length=50)
+class SignUpRequest(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=8, max_length=128)
+    username: str = Field(..., min_length=3, max_length=50)
 
 
-class UserResponse(BaseModel):
-    """Esquema de salida con datos seguros del usuario registrado.
-
-    Excluye `hashed_password` para no exponer credenciales en la API.
-    """
-
-    id: uuid.UUID
-    username: str
+class LoginRequest(BaseModel):
     email: EmailStr
+    password: str = Field(..., min_length=1, max_length=128)
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str = Field(..., min_length=1)
+
+
+class SessionResponse(BaseModel):
+    """Tokens que la app debe guardar y enviar en `Authorization: Bearer`."""
+
+    access_token: str
+    refresh_token: str
+    expires_in: int
+    token_type: str
+    user_id: UUID
+    email: str | None
+
+
+class SignUpResponse(BaseModel):
+    user_id: UUID
+    email: str | None
+    session: SessionResponse | None
+    requires_email_confirmation: bool
+
+
+class ProfileResponse(BaseModel):
+    """Perfil público del usuario autenticado."""
+
+    id: UUID
+    username: str
+    email: str | None
     created_at: datetime
 
 
+def _session_response(session: AuthSession) -> SessionResponse:
+    return SessionResponse(
+        access_token=session.access_token,
+        refresh_token=session.refresh_token,
+        expires_in=session.expires_in,
+        token_type=session.token_type,
+        user_id=session.user_id,
+        email=session.email,
+    )
+
+
+def _http_error(exc: AuthServiceError) -> HTTPException:
+    return HTTPException(status_code=exc.status_code, detail=exc.message)
+
+
 @router.post(
-    "/register",
-    response_model=UserResponse,
+    "/signup",
+    response_model=SignUpResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Registrar usuario",
-    description="Crea una cuenta de usuario con contraseña hasheada con bcrypt.",
+    description="Crea la cuenta en Supabase Auth. Si el proyecto exige confirmar el email, "
+    "`session` será null hasta que el usuario confirme.",
 )
-async def register(
-    payload: UserCreate,
-    user_repo: UserRepository = Depends(get_user_repository),
-) -> UserResponse:
-    """Registra un nuevo usuario en el sistema.
-
-    Args:
-        payload: Datos validados para la creación del usuario.
-        user_repo: Repositorio de usuarios inyectado.
-
-    Returns:
-        Objeto `UserResponse` con los datos públicos del usuario creado.
-    """
-    user = User(
-        id=uuid.uuid4(),
-        username=payload.username,
-        email=payload.email,
-        hashed_password=hash_password(payload.password),
-        created_at=datetime.utcnow(),
+async def sign_up(
+    payload: SignUpRequest,
+    auth: AuthService = Depends(get_auth_service),
+) -> SignUpResponse:
+    try:
+        result = await auth.sign_up(payload.email, payload.password, payload.username)
+    except AuthServiceError as exc:
+        raise _http_error(exc) from exc
+    return SignUpResponse(
+        user_id=result.user_id,
+        email=result.email,
+        session=_session_response(result.session) if result.session else None,
+        requires_email_confirmation=result.session is None,
     )
-    await user_repo.save(user)
-    return UserResponse(
-        id=user.id,
-        username=user.username,
-        email=user.email,
-        created_at=user.created_at,
+
+
+@router.post(
+    "/login",
+    response_model=SessionResponse,
+    summary="Iniciar sesión",
+    description="Valida email y contraseña contra Supabase Auth y devuelve la sesión.",
+)
+async def login(
+    payload: LoginRequest,
+    auth: AuthService = Depends(get_auth_service),
+) -> SessionResponse:
+    try:
+        session = await auth.sign_in(payload.email, payload.password)
+    except AuthServiceError as exc:
+        raise _http_error(exc) from exc
+    return _session_response(session)
+
+
+@router.post(
+    "/refresh",
+    response_model=SessionResponse,
+    summary="Renovar sesión",
+    description="Intercambia un refresh token por una sesión nueva.",
+)
+async def refresh(
+    payload: RefreshRequest,
+    auth: AuthService = Depends(get_auth_service),
+) -> SessionResponse:
+    try:
+        session = await auth.refresh(payload.refresh_token)
+    except AuthServiceError as exc:
+        raise _http_error(exc) from exc
+    return _session_response(session)
+
+
+@router.post(
+    "/logout",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Cerrar sesión",
+    description="Revoca los refresh tokens del usuario en Supabase. "
+    "El access token sigue siendo válido hasta su expiración.",
+)
+async def logout(
+    access_token: str = Depends(get_bearer_token),
+    auth: AuthService = Depends(get_auth_service),
+) -> None:
+    try:
+        await auth.sign_out(access_token)
+    except AuthServiceError as exc:
+        raise _http_error(exc) from exc
+
+
+@router.get(
+    "/me",
+    response_model=ProfileResponse,
+    summary="Perfil del usuario autenticado",
+    description="Devuelve el perfil asociado al JWT de Supabase, creándolo en la primera llamada.",
+)
+async def me(profile: User = Depends(get_current_profile)) -> ProfileResponse:
+    return ProfileResponse(
+        id=profile.id,
+        username=profile.username,
+        email=profile.email,
+        created_at=profile.created_at,
     )

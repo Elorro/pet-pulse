@@ -1,10 +1,36 @@
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from sqlalchemy.engine import make_url
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.core.config import get_settings
 
 settings = get_settings()
 
-engine = create_async_engine(settings.database_url_async, echo=True)
+
+def _async_database_url(database_url: str) -> str:
+    """Normalize PostgreSQL URLs for SQLAlchemy's asyncpg driver."""
+    url = make_url(database_url)
+    if url.drivername in {
+        "postgres",
+        "postgresql",
+        "postgresql+psycopg",
+        "postgresql+psycopg2",
+    }:
+        url = url.set(drivername="postgresql+asyncpg")
+
+    query = dict(url.query)
+    sslmode = query.pop("sslmode", None)
+    if sslmode and "ssl" not in query:
+        query["ssl"] = sslmode
+
+    # Supabase requires TLS for hosted PostgreSQL connections.
+    host = url.host or ""
+    if "supabase" in host and "ssl" not in query:
+        query["ssl"] = "require"
+
+    return url.set(query=query).render_as_string(hide_password=False)
+
+
+engine = create_async_engine(_async_database_url(settings.database_url_async), echo=True)
 async_session_factory = async_sessionmaker(
     engine,
     class_=AsyncSession,

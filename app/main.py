@@ -5,17 +5,17 @@ agrega cabeceras de seguridad básicas y registra los routers versionados
 de autenticación y publicaciones.
 """
 
+from collections.abc import Callable
 from contextlib import asynccontextmanager
-from typing import Callable
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import RedirectResponse, Response
 
+import app.infrastructure.db.models
 from app.api.v1.routes import auth, posts
 from app.core.config import get_settings
 from app.infrastructure.db.base import Base
-import app.infrastructure.db.models  # noqa: F401
 from app.infrastructure.db.session import engine
 
 settings = get_settings()
@@ -85,7 +85,11 @@ async def add_security_headers(
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "no-referrer"
-    response.headers["Content-Security-Policy"] = "default-src 'self'"
+    # FastAPI sirve Swagger/ReDoc con recursos externos e inicialización inline.
+    # La CSP estricta de la API bloquearía esos recursos y dejaría /docs en blanco.
+    docs_paths = {"/docs", "/redoc", "/docs/oauth2-redirect"}
+    if request.url.path not in docs_paths:
+        response.headers["Content-Security-Policy"] = "default-src 'self'"
 
     environment = getattr(settings, "environment", "development")
     if environment == "production" and request.url.scheme == "http":
