@@ -89,11 +89,15 @@ class SupabaseAuthService(AuthService):
                 {"email": email, "password": password}
             )
         except AuthError as exc:
+            logger.warning(
+                "Supabase Auth rechazó login (status=%s, code=%s)",
+                getattr(exc, "status", None),
+                getattr(exc, "code", None),
+            )
             raise _translate(exc) from exc
         if response.session is None:
             raise AuthServiceError("Credenciales inválidas", status_code=401)
         return _to_session(response.session)
-
     async def refresh(self, refresh_token: str) -> AuthSession:
         client = await self._client()
         try:
