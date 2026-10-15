@@ -42,19 +42,12 @@ app: FastAPI = FastAPI(
 )
 
 # ---------------------------------------------------------------------------
-# CORS controlado para aplicaciones móviles y frontend local.
-# En producción deben ajustarse los orígenes permitidos mediante variables
-# de entorno o la configuración centralizada.
+# CORS controlado para aplicaciones móviles y frontend.
+# En producción se configura con la variable de entorno CORS_ORIGINS.
 # ---------------------------------------------------------------------------
-cors_origins = [
-    "http://localhost",
-    "http://localhost:3000",
-    "http://localhost:8080",
-]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=cors_origins,
+    allow_origins=settings.cors_origin_list,
     allow_credentials=True,
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
@@ -92,7 +85,9 @@ async def add_security_headers(
         response.headers["Content-Security-Policy"] = "default-src 'self'"
 
     environment = getattr(settings, "environment", "development")
-    if environment == "production" and request.url.scheme == "http":
+    # Detrás de un proxy (Vercel) el esquema original llega en X-Forwarded-Proto.
+    scheme = request.headers.get("x-forwarded-proto", request.url.scheme)
+    if environment == "production" and scheme == "http":
         redirect_url = str(request.url).replace("http://", "https://", 1)
         return RedirectResponse(url=redirect_url, status_code=301)
 
