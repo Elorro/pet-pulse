@@ -35,8 +35,8 @@ async def lifespan(app: FastAPI):
 
 
 app: FastAPI = FastAPI(
-    title="PetPulse API",
-    description="API REST para la red social de mascotas PetPulse.",
+    title="Pet Pulse API",
+    description="API REST para la red social de mascotas Pet Pulse.",
     version="0.1.0",
     lifespan=lifespan,
 )

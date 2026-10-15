@@ -1,11 +1,11 @@
 [project]
-name = "social-network"
+name = "pet-pulse"
 version = "0.1.0"
 description = "Red social para mascotas con reconocimiento biométrico en el dispositivo móvil"
 readme = "README.md"
 requires-python = ">=3.11,<3.15"
 license = { text = "MIT" }
-authors = [{ name = "Equipo Social Network", email = "dev@social-network.local" }]
+authors = [{ name = "Equipo Pet Pulse", email = "dev@social-network.local" }]
 dependencies = [
     "fastapi>=0.110.0,<1.0",
     "uvicorn[standard]>=0.29.0,<1.0",
@@ -46,10 +46,10 @@ select = ["E", "F", "I", "B", "UP"]
 ignore = ["B008"]
 
 [tool.poetry]
-name = "social-network"
+name = "pet-pulse"
 version = "0.1.0"
 description = "Red social para mascotas con reconocimiento biométrico en el dispositivo móvil"
-authors = ["Equipo Social Network <dev@social-network.local>"]
+authors = ["Equipo Pet Pulse <dev@social-network.local>"]
 license = "MIT"
 readme = "README.md"
 packages = [{ include = "app" }]

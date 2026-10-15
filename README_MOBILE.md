@@ -1,4 +1,4 @@
-# Social Network - Móvil (Flutter)
+# Pet Pulse - Móvil (Flutter)
 
 Este documento describe la arquitectura limpia para la aplicación móvil desarrollada en Flutter, la cual consume la API REST creada con FastAPI.
 
