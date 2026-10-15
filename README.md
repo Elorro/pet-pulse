@@ -1,4 +1,4 @@
-# 🐾 PetPulse (social-network)
+# 🐾 Pet Pulse
 
 Red social de código abierto para mascotas orientada al rescate, foro y adopción, con un sistema biométrico avanzado de reconocimiento canino/felino mediante embeddings vectoriales.
 
@@ -38,5 +38,5 @@ El sistema está diseñado bajo una lista estricta de **20 parámetros de seguri
 
 ## 📂 Documentación Adicional
 
-- [Guía de IA y Edge Computing](social-network/README_AI_EDGE.md)
-- [Especificación de la Arquitectura Móvil](social-network/README_MOBILE.md)
+- [Guía de IA y Edge Computing](README_AI_EDGE.md)
+- [Especificación de la Arquitectura Móvil](README_MOBILE.md)
