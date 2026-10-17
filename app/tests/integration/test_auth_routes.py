@@ -15,6 +15,9 @@ from httpx import ASGITransport, AsyncClient
 from app.core.auth import AuthUser, InvalidTokenError, get_token_verifier
 from app.infrastructure.db.base import Base
 from app.infrastructure.db.session import engine
+from app.infrastructure.repositories.sqlalchemy_user_repository import (
+    SQLAlchemyUserRepository,
+)
 from app.main import app
 
 TEST_KEY = ec.generate_private_key(ec.SECP256R1())
@@ -108,6 +111,46 @@ async def test_me_recovers_when_username_is_claimed_before_insert(client):
     assert first.status_code == 200
     assert second.status_code == 200
     assert second.json()["username"] == f"user_{second_id.hex}"
+
+
+async def test_me_is_409_when_email_belongs_to_another_profile(client):
+    first_id, second_id = uuid.uuid4(), uuid.uuid4()
+    first = await client.get(
+        "/api/v1/auth/me",
+        headers={"Authorization": f"Bearer {token_for(first_id, email='dup@example.com')}"},
+    )
+    second = await client.get(
+        "/api/v1/auth/me",
+        headers={"Authorization": f"Bearer {token_for(second_id, email='dup@example.com')}"},
+    )
+    assert first.status_code == 200
+    assert second.status_code == 409
+    assert second.json()["detail"] == "El correo ya está asociado a otro perfil"
+
+
+async def test_me_is_409_when_email_is_claimed_before_insert(client, monkeypatch):
+    first_id, second_id = uuid.uuid4(), uuid.uuid4()
+    await client.get(
+        "/api/v1/auth/me",
+        headers={"Authorization": f"Bearer {token_for(first_id, email='dup@example.com')}"},
+    )
+
+    # Simula la carrera: la comprobación previa no ve el correo, el INSERT sí choca.
+    original = SQLAlchemyUserRepository.get_by_email
+    calls = 0
+
+    async def racy_get_by_email(self, email):
+        nonlocal calls
+        calls += 1
+        return None if calls == 1 else await original(self, email)
+
+    monkeypatch.setattr(SQLAlchemyUserRepository, "get_by_email", racy_get_by_email)
+    second = await client.get(
+        "/api/v1/auth/me",
+        headers={"Authorization": f"Bearer {token_for(second_id, email='dup@example.com')}"},
+    )
+    assert second.status_code == 409
+    assert second.json()["detail"] == "El correo ya está asociado a otro perfil"
 
 
 async def test_create_post_requires_auth(client):
