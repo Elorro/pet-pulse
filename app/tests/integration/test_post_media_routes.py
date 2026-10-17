@@ -132,3 +132,22 @@ async def test_text_only_post_has_null_media_and_storage_errors_are_502(client, 
         "/api/v1/posts/", json={"content": "con imagen", "media_path": path}, headers=headers
     )
     assert failed_post.status_code == 502
+
+
+async def test_text_post_works_without_storage_configured(client):
+    app.dependency_overrides[get_storage_service] = lambda: None
+    user_id = uuid.uuid4()
+    headers = {"Authorization": f"Bearer {token_for(user_id)}"}
+    created = await client.post("/api/v1/posts/", json={"content": "solo texto"}, headers=headers)
+    assert created.status_code == 201
+
+    upload = await client.post(
+        "/api/v1/posts/media-uploads", json={"content_type": "image/png"}, headers=headers
+    )
+    assert upload.status_code == 503
+    with_media = await client.post(
+        "/api/v1/posts/",
+        json={"content": "con imagen", "media_path": f"{user_id}/{uuid.uuid4()}.png"},
+        headers=headers,
+    )
+    assert with_media.status_code == 503
