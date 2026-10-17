@@ -28,3 +28,13 @@ class UserRepository(abc.ABC):
     async def get_by_email(self, email: str) -> User | None:
         """Recupera un perfil por su dirección de correo electrónico."""
         raise NotImplementedError
+
+    @abc.abstractmethod
+    async def get_by_username(self, username: str) -> User | None:
+        """Recupera un perfil por su nombre de usuario."""
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    async def rollback(self) -> None:
+        """Limpia la transacción tras un error de persistencia."""
+        raise NotImplementedError
