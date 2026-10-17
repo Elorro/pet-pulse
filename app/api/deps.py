@@ -100,6 +100,18 @@ def _default_username(auth_user: AuthUser) -> str:
     return f"user_{auth_user.id.hex[:12]}"
 
 
+async def _ensure_email_available(user_repo: UserRepository, auth_user: AuthUser) -> None:
+    """Responde 409 si otro perfil local ya usa el correo del usuario autenticado."""
+    if not auth_user.email:
+        return
+    owner = await user_repo.get_by_email(auth_user.email)
+    if owner is not None and owner.id != auth_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="El correo ya está asociado a otro perfil",
+        )
+
+
 async def get_current_profile(
     auth_user: AuthUser = Depends(get_current_user),
     user_repo: UserRepository = Depends(get_user_repository),
@@ -113,6 +125,8 @@ async def get_current_profile(
     if existing is not None:
         return existing
 
+    await _ensure_email_available(user_repo, auth_user)
+
     now = datetime.now(UTC)
     user = User(
         id=auth_user.id,
@@ -124,11 +138,12 @@ async def get_current_profile(
     try:
         await user_repo.save(user)
     except IntegrityError:
-        # Another request may have claimed the same username after the lookup.
+        # Another request may have claimed the same username or email after the lookup.
         await user_repo.rollback()
         existing = await user_repo.get_by_id(auth_user.id)
         if existing is not None:
             return existing
+        await _ensure_email_available(user_repo, auth_user)
         user.username = f"user_{auth_user.id.hex}"
         try:
             await user_repo.save(user)

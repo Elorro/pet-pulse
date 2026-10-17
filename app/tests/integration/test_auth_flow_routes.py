@@ -148,6 +148,21 @@ async def test_signup_duplicate_is_422(client):
     assert response.json()["detail"] == "User already registered"
 
 
+async def test_signup_duplicate_email_is_422_even_with_taken_username(
+    fake_auth, fake_users, client
+):
+    await client.post("/api/v1/auth/signup", json=SIGNUP)
+    existing_id = uuid.uuid4()
+    now = datetime.now(UTC)
+    fake_users.users[existing_id] = User(
+        id=existing_id, username="ana", email=SIGNUP["email"],
+        created_at=now, updated_at=now,
+    )
+    response = await client.post("/api/v1/auth/signup", json=SIGNUP)
+    assert response.status_code == 422
+    assert response.json()["detail"] == "User already registered"
+
+
 async def test_signup_validates_payload(client):
     response = await client.post(
         "/api/v1/auth/signup", json={"email": "no", "password": "short", "username": "a"}
