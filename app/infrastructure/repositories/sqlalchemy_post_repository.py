@@ -38,6 +38,7 @@ class SQLAlchemyPostRepository(PostRepository):
             author_id=post.author_id,
             content=post.content,
             created_at=post.created_at,
+            media_url=post.media_url,
         )
         self._session.add(post_orm)
         await self._session.commit()
@@ -56,12 +57,7 @@ class SQLAlchemyPostRepository(PostRepository):
         Returns:
             Lista de entidades `Post` correspondientes a la página solicitada.
         """
-        stmt = (
-            select(PostModel)
-            .order_by(PostModel.created_at.desc())
-            .limit(limit)
-            .offset(offset)
-        )
+        stmt = select(PostModel).order_by(PostModel.created_at.desc()).limit(limit).offset(offset)
         result = await self._session.execute(stmt)
         post_orms = result.scalars().all()
 
@@ -72,6 +68,7 @@ class SQLAlchemyPostRepository(PostRepository):
                 content=post_orm.content,
                 created_at=as_utc(post_orm.created_at),
                 updated_at=as_utc(post_orm.created_at),  # El MVP no registra edición por separado
+                media_url=post_orm.media_url,
             )
             for post_orm in post_orms
         ]

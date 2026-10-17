@@ -13,6 +13,7 @@ class Post:
         content: Contenido textual de la publicación.
         created_at: Fecha y hora de creación de la publicación.
         updated_at: Fecha y hora de la última edición de la publicación.
+        media_url: URL pública opcional de la imagen adjunta.
     """
 
     id: UUID
@@ -20,3 +21,4 @@ class Post:
     content: str
     created_at: datetime
     updated_at: datetime
+    media_url: str | None = None

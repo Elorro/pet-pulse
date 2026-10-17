@@ -15,6 +15,11 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("SUPABASE_ANON_KEY", "SUPABASE_KEY"),
         description="Clave pública (anon/publishable) para el SDK.",
     )
+    supabase_service_role_key: str = Field(
+        default="",
+        validation_alias=AliasChoices("SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_SECRET_KEY"),
+    )
+    supabase_media_bucket: str = "post-media"
     supabase_jwt_secret: str | None = None  # Solo para proyectos legados con HS256.
     supabase_jwt_audience: str = "authenticated"
 
