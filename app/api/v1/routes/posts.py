@@ -56,6 +56,15 @@ class PostResponse(BaseModel):
     media_url: str | None
 
 
+def _require_storage(storage: StorageService | None) -> StorageService:
+    if storage is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="La carga de imágenes no está configurada",
+        )
+    return storage
+
+
 def _to_response(post: Post) -> PostResponse:
     return PostResponse(
         id=post.id,
@@ -76,8 +85,9 @@ def _to_response(post: Post) -> PostResponse:
 async def create_media_upload(
     payload: MediaUploadCreate,
     author: User = Depends(get_current_profile),
-    storage: StorageService = Depends(get_storage_service),
+    storage: StorageService | None = Depends(get_storage_service),
 ) -> MediaUploadResponse:
+    storage = _require_storage(storage)
     ext = ALLOWED_MEDIA_TYPES[payload.content_type]
     path = f"{author.id}/{uuid4()}.{ext}"
     try:
@@ -113,10 +123,11 @@ async def create_post(
     payload: PostCreate,
     author: User = Depends(get_current_profile),
     post_repo: PostRepository = Depends(get_post_repository),
-    storage: StorageService = Depends(get_storage_service),
+    storage: StorageService | None = Depends(get_storage_service),
 ) -> PostResponse:
     media_url = None
     if payload.media_path is not None:
+        storage = _require_storage(storage)
         if not re.fullmatch(
             rf"{author.id}/[0-9a-f-]{{36}}\.(jpg|png|webp|gif)", payload.media_path
         ):

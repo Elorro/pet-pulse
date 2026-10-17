@@ -4,6 +4,7 @@ Proporciona la sesión de base de datos, los repositorios concretos y la
 identidad del usuario autenticado mediante Supabase Auth.
 """
 
+import logging
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
 from functools import lru_cache
@@ -27,6 +28,8 @@ from app.infrastructure.repositories.sqlalchemy_user_repository import SQLAlchem
 from app.infrastructure.services.supabase_auth_service import SupabaseAuthService
 from app.infrastructure.services.supabase_storage_service import SupabaseStorageService
 
+logger = logging.getLogger(__name__)
+
 bearer_scheme = HTTPBearer(auto_error=False)
 
 
@@ -38,14 +41,22 @@ def get_auth_service() -> AuthService:
 
 
 @lru_cache
-def get_storage_service() -> StorageService:
-    """Proveedor de imágenes de publicaciones (Supabase Storage)."""
+def get_storage_service() -> StorageService | None:
+    """Proveedor de imágenes de publicaciones (Supabase Storage).
+
+    Devuelve None si falta configuración, para que las publicaciones de solo
+    texto sigan funcionando sin SUPABASE_SERVICE_ROLE_KEY.
+    """
     settings = get_settings()
-    return SupabaseStorageService(
-        settings.supabase_url,
-        settings.supabase_service_role_key,
-        settings.supabase_media_bucket,
-    )
+    try:
+        return SupabaseStorageService(
+            settings.supabase_url,
+            settings.supabase_service_role_key,
+            settings.supabase_media_bucket,
+        )
+    except ValueError:
+        logger.warning("Supabase Storage no está configurado; las imágenes están deshabilitadas")
+        return None
 
 
 async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
