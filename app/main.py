@@ -6,7 +6,6 @@ de autenticación y publicaciones.
 """
 
 from collections.abc import Callable
-from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -15,30 +14,14 @@ from starlette.responses import RedirectResponse, Response
 import app.infrastructure.db.models
 from app.api.v1.routes import auth, posts
 from app.core.config import get_settings
-from app.infrastructure.db.base import Base
-from app.infrastructure.db.session import engine
 
 settings = get_settings()
-
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Crea las tablas de la base de datos al iniciar la aplicación.
-
-    Este bloque se ejecuta antes de que la API empiece a recibir
-    peticiones, garantizando que los modelos ORM estén registrados
-    y que las tablas existan en el esquema configurado.
-    """
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    yield
 
 
 app: FastAPI = FastAPI(
     title="Pet Pulse API",
     description="API REST para la red social de mascotas Pet Pulse.",
     version="0.1.0",
-    lifespan=lifespan,
 )
 
 # ---------------------------------------------------------------------------
