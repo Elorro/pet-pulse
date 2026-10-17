@@ -5,19 +5,26 @@ sesión, renovación y cierre delegan en Supabase Auth mediante su SDK; el
 backend nunca almacena contraseñas ni emite tokens propios.
 """
 
+import secrets
 from datetime import datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, EmailStr, Field
 
-from app.api.deps import get_auth_service, get_bearer_token, get_current_profile
+from app.api.deps import (
+    get_auth_service,
+    get_bearer_token,
+    get_current_profile,
+    get_user_repository,
+)
 from app.application.interfaces.auth_service import (
     AuthService,
     AuthServiceError,
     AuthSession,
 )
 from app.domain.entities.user import User
+from app.domain.repositories.user_repository import UserRepository
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -90,9 +97,22 @@ def _http_error(exc: AuthServiceError) -> HTTPException:
 async def sign_up(
     payload: SignUpRequest,
     auth: AuthService = Depends(get_auth_service),
+    user_repo: UserRepository = Depends(get_user_repository),
 ) -> SignUpResponse:
     try:
-        result = await auth.sign_up(payload.email, payload.password, payload.username)
+        username = payload.username
+        if await user_repo.get_by_username(username) is not None:
+            # Leave room for the prefix and keep fallback names within VARCHAR(50).
+            for _ in range(5):
+                candidate = f"user_{secrets.token_hex(12)}"
+                if await user_repo.get_by_username(candidate) is None:
+                    username = candidate
+                    break
+            else:
+                raise AuthServiceError(
+                    "No se pudo asignar un nombre de usuario disponible", status_code=503
+                )
+        result = await auth.sign_up(payload.email, payload.password, username)
     except AuthServiceError as exc:
         raise _http_error(exc) from exc
     return SignUpResponse(

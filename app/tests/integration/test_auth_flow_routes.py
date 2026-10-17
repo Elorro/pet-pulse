@@ -4,17 +4,19 @@ Se sustituye el `AuthService` real (SDK de Supabase) por un doble en memoria.
 """
 
 import uuid
+from datetime import UTC, datetime
 
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
-from app.api.deps import get_auth_service
+from app.api.deps import get_auth_service, get_user_repository
 from app.application.interfaces.auth_service import (
     AuthService,
     AuthServiceError,
     AuthSession,
     SignUpResult,
 )
+from app.domain.entities.user import User
 from app.main import app
 
 
@@ -24,6 +26,7 @@ class FakeAuthService(AuthService):
         self.refresh_tokens: dict[str, uuid.UUID] = {}
         self.revoked: list[str] = []
         self.confirm_email = confirm_email
+        self.signup_usernames: dict[str, str] = {}
 
     def _session(self, user_id: uuid.UUID, email: str) -> AuthSession:
         refresh = f"refresh-{uuid.uuid4().hex}"
@@ -38,6 +41,7 @@ class FakeAuthService(AuthService):
             raise AuthServiceError("User already registered", status_code=422)
         user_id = uuid.uuid4()
         self.users[email] = (user_id, password)
+        self.signup_usernames[email] = username
         session = None if self.confirm_email else self._session(user_id, email)
         return SignUpResult(user_id=user_id, email=email, session=session)
 
@@ -58,14 +62,40 @@ class FakeAuthService(AuthService):
         self.revoked.append(access_token)
 
 
+class FakeUserRepository:
+    def __init__(self):
+        self.users: dict[uuid.UUID, User] = {}
+
+    async def get_by_username(self, username):
+        return next((u for u in self.users.values() if u.username == username), None)
+
+    async def get_by_id(self, user_id):
+        return self.users.get(user_id)
+
+    async def get_by_email(self, email):
+        return next((u for u in self.users.values() if u.email == email), None)
+
+    async def save(self, user):
+        self.users[user.id] = user
+
+    async def rollback(self):
+        pass
+
+
 @pytest_asyncio.fixture
 async def fake_auth():
     return FakeAuthService()
 
 
 @pytest_asyncio.fixture
-async def client(fake_auth):
+async def fake_users():
+    return FakeUserRepository()
+
+
+@pytest_asyncio.fixture
+async def client(fake_auth, fake_users):
     app.dependency_overrides[get_auth_service] = lambda: fake_auth
+    app.dependency_overrides[get_user_repository] = lambda: fake_users
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         yield c
     app.dependency_overrides.clear()
@@ -81,6 +111,26 @@ async def test_signup_returns_session(client):
     assert body["requires_email_confirmation"] is False
     assert body["session"]["token_type"] == "bearer"
     assert body["session"]["user_id"] == body["user_id"]
+
+
+async def test_signup_keeps_available_username_in_metadata(fake_auth, client):
+    response = await client.post("/api/v1/auth/signup", json=SIGNUP)
+    assert response.status_code == 201
+    assert fake_auth.signup_usernames[SIGNUP["email"]] == "ana"
+
+
+async def test_signup_uses_fallback_when_username_is_taken(fake_auth, fake_users, client):
+    existing_id = uuid.uuid4()
+    now = datetime.now(UTC)
+    fake_users.users[existing_id] = User(
+        id=existing_id, username="ana", email="taken@example.com",
+        created_at=now, updated_at=now,
+    )
+    response = await client.post("/api/v1/auth/signup", json=SIGNUP)
+    assert response.status_code == 201
+    assigned = fake_auth.signup_usernames[SIGNUP["email"]]
+    assert assigned.startswith("user_")
+    assert len(assigned) <= 50
 
 
 async def test_signup_with_email_confirmation_has_no_session(fake_auth, client):

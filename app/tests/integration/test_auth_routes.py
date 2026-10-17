@@ -95,6 +95,21 @@ async def test_me_falls_back_to_generated_username(client):
     assert response.json()["username"] == f"user_{user_id.hex[:12]}"
 
 
+async def test_me_recovers_when_username_is_claimed_before_insert(client):
+    first_id, second_id = uuid.uuid4(), uuid.uuid4()
+    first = await client.get(
+        "/api/v1/auth/me",
+        headers={"Authorization": f"Bearer {token_for(first_id, username='same-name')}"},
+    )
+    second = await client.get(
+        "/api/v1/auth/me",
+        headers={"Authorization": f"Bearer {token_for(second_id, username='same-name')}"},
+    )
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert second.json()["username"] == f"user_{second_id.hex}"
+
+
 async def test_create_post_requires_auth(client):
     response = await client.post("/api/v1/posts/", json={"content": "hola"})
     assert response.status_code == 401

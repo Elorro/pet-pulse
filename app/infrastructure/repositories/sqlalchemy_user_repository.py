@@ -46,3 +46,12 @@ class SQLAlchemyUserRepository(UserRepository):
         result = await self._session.execute(stmt)
         user_orm = result.scalar_one_or_none()
         return _to_entity(user_orm) if user_orm else None
+
+    async def get_by_username(self, username: str) -> User | None:
+        stmt = select(UserModel).where(UserModel.username == username)
+        result = await self._session.execute(stmt)
+        user_orm = result.scalar_one_or_none()
+        return _to_entity(user_orm) if user_orm else None
+
+    async def rollback(self) -> None:
+        await self._session.rollback()

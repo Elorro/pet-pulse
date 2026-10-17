@@ -11,6 +11,7 @@ from functools import lru_cache
 from fastapi import Depends, HTTPException, status
 from fastapi.concurrency import run_in_threadpool
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.application.interfaces.auth_service import AuthService
@@ -120,5 +121,21 @@ async def get_current_profile(
         created_at=now,
         updated_at=now,
     )
-    await user_repo.save(user)
+    try:
+        await user_repo.save(user)
+    except IntegrityError:
+        # Another request may have claimed the same username after the lookup.
+        await user_repo.rollback()
+        existing = await user_repo.get_by_id(auth_user.id)
+        if existing is not None:
+            return existing
+        user.username = f"user_{auth_user.id.hex}"
+        try:
+            await user_repo.save(user)
+        except IntegrityError as exc:
+            await user_repo.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="No se pudo crear el perfil por un conflicto de unicidad",
+            ) from exc
     return user
