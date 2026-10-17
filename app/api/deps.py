@@ -15,6 +15,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.application.interfaces.auth_service import AuthService
+from app.application.interfaces.storage_service import StorageService
 from app.core.auth import AuthUser, InvalidTokenError, SupabaseTokenVerifier, get_token_verifier
 from app.core.config import get_settings
 from app.domain.entities.user import User
@@ -24,6 +25,7 @@ from app.infrastructure.db.session import async_session_factory
 from app.infrastructure.repositories.sqlalchemy_post_repository import SQLAlchemyPostRepository
 from app.infrastructure.repositories.sqlalchemy_user_repository import SQLAlchemyUserRepository
 from app.infrastructure.services.supabase_auth_service import SupabaseAuthService
+from app.infrastructure.services.supabase_storage_service import SupabaseStorageService
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -33,6 +35,17 @@ def get_auth_service() -> AuthService:
     """Proveedor de identidad (Supabase) usado por los endpoints de /auth."""
     settings = get_settings()
     return SupabaseAuthService(settings.supabase_url, settings.supabase_anon_key)
+
+
+@lru_cache
+def get_storage_service() -> StorageService:
+    """Proveedor de imágenes de publicaciones (Supabase Storage)."""
+    settings = get_settings()
+    return SupabaseStorageService(
+        settings.supabase_url,
+        settings.supabase_service_role_key,
+        settings.supabase_media_bucket,
+    )
 
 
 async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
