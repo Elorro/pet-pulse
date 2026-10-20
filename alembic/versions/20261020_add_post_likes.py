@@ -17,12 +17,12 @@ def upgrade() -> None:
         "post_likes",
         sa.Column("id", sa.Uuid(), nullable=False),
         sa.Column("post_id", sa.Uuid(), nullable=False),
-        sa.Column("user_id", sa.Uuid(), nullable=False),
+        sa.Column("like_id", sa.Uuid(), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
         sa.ForeignKeyConstraint(["post_id"], ["posts.id"], ondelete="CASCADE"),
-        sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["like_id"], ["users.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("post_id", "user_id", name="uq_post_likes_post_user"),
+        sa.UniqueConstraint("post_id", "like_id", name="uq_post_likes_post_user"),
     )
 
 
