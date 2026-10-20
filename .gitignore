@@ -10,5 +10,5 @@ __pycache__/
 # node (e.g. from installing the Supabase CLI via npm)
 node_modules/
 
-# Supabase CLI local state; schema is managed by Alembic
-/supabase/
+# Supabase CLI local state (supabase/.gitignore covers the rest)
+/supabase/.temp/
