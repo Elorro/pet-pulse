@@ -6,3 +6,9 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
+
+# node (e.g. from installing the Supabase CLI via npm)
+node_modules/
+
+# Supabase CLI local state; schema is managed by Alembic
+/supabase/
