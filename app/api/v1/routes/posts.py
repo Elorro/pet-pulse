@@ -72,7 +72,7 @@ def _require_storage(storage: StorageService | None) -> StorageService:
     return storage
 
 
-def _to_response(post: Post) -> PostResponse:
+def _to_response(post: Post, like_count: int = 0) -> PostResponse:
     return PostResponse(
         id=post.id,
         author_id=post.author_id,
@@ -80,6 +80,7 @@ def _to_response(post: Post) -> PostResponse:
         created_at=post.created_at,
         updated_at=post.updated_at,
         media_url=post.media_url,
+        like_count=like_count,
     )
 
 
@@ -117,10 +118,7 @@ async def list_posts(
 ) -> list[PostResponse]:
     posts = await post_repo.get_all_paginated(limit=limit, offset=offset)
     like_counts = await post_repo.get_like_counts([post.id for post in posts])
-    return [
-        PostResponse(**_to_response(post).model_dump(), like_count=like_counts[post.id])
-        for post in posts
-    ]
+    return [_to_response(post, like_counts[post.id]) for post in posts]
 
 
 @router.get("/{post_id}", response_model=PostResponse, summary="Get post")
@@ -131,10 +129,7 @@ async def get_post(
     post = await post_repo.get_by_id(post_id)
     if post is None:
         raise HTTPException(status_code=404, detail="Post not found")
-    return PostResponse(
-        **_to_response(post).model_dump(),
-        like_count=await post_repo.get_like_count(post_id),
-    )
+    return _to_response(post, await post_repo.get_like_count(post_id))
 
 
 @router.post("/{post_id}/like", response_model=LikeResponse, summary="Like post")

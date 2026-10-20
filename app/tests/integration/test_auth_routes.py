@@ -173,6 +173,31 @@ async def test_create_post_then_list(client):
     assert [p["content"] for p in listed.json()] == ["Mi perro Toby"]
 
 
+async def test_like_post_updates_counts(client):
+    headers = {"Authorization": f"Bearer {token_for(uuid.uuid4(), username='ana')}"}
+    created = await client.post(
+        "/api/v1/posts/", json={"content": "Mi perro Toby"}, headers=headers
+    )
+    post_id = created.json()["id"]
+
+    fetched = await client.get(f"/api/v1/posts/{post_id}")
+    assert fetched.status_code == 200
+    assert fetched.json()["like_count"] == 0
+
+    for _ in range(2):
+        liked = await client.post(f"/api/v1/posts/{post_id}/like", headers=headers)
+        assert liked.status_code == 200
+        assert liked.json()["like_count"] == 1
+
+    assert (await client.get(f"/api/v1/posts/{post_id}")).json()["like_count"] == 1
+    assert (await client.get("/api/v1/posts/")).json()[0]["like_count"] == 1
+
+
+async def test_get_missing_post_is_404(client):
+    response = await client.get(f"/api/v1/posts/{uuid.uuid4()}")
+    assert response.status_code == 404
+
+
 async def test_create_post_rejects_empty_content(client):
     headers = {"Authorization": f"Bearer {token_for(uuid.uuid4())}"}
     response = await client.post("/api/v1/posts/", json={"content": ""}, headers=headers)
