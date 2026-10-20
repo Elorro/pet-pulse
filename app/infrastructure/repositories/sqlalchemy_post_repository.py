@@ -7,15 +7,15 @@ desacoplamiento de la lógica de negocio.
 
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import Integer, delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.entities.post import Post
 from app.domain.repositories.post_repository import PostRepository
 from app.infrastructure.db.datetime_utils import as_utc
-from app.infrastructure.db.models.post_model import PostModel
 from app.infrastructure.db.models.post_like_model import PostLikeModel
+from app.infrastructure.db.models.post_model import PostModel
 
 
 class SQLAlchemyPostRepository(PostRepository):
@@ -109,7 +109,9 @@ class SQLAlchemyPostRepository(PostRepository):
         return {post_id: counts.get(post_id, 0) for post_id in post_ids}
 
     async def like(self, post_id: UUID, user_id: UUID) -> int | None:
-        post_exists = await self._session.execute(select(PostModel.id).where(PostModel.id == post_id))
+        post_exists = await self._session.execute(
+            select(PostModel.id).where(PostModel.id == post_id)
+        )
         if post_exists.scalar_one_or_none() is None:
             return None
 
@@ -125,4 +127,41 @@ class SQLAlchemyPostRepository(PostRepository):
             except IntegrityError:
                 # Una solicitud concurrente pudo insertar el mismo like primero.
                 await self._session.rollback()
+        return await self.get_like_count(post_id)
+
+    async def get_user_like(self, post_id: UUID, user_id: UUID) -> tuple[int, bool] | None:
+        post_exists = await self._session.execute(
+            select(PostModel.id).where(PostModel.id == post_id)
+        )
+        if post_exists.scalar_one_or_none() is None:
+            return None
+
+        result = await self._session.execute(
+            select(
+                func.count(PostLikeModel.id),
+                func.coalesce(
+                    func.max(
+                        (PostLikeModel.user_id == user_id).cast(Integer)
+                    ),
+                    0,
+                ),
+            ).where(PostLikeModel.post_id == post_id)
+        )
+        like_count, liked = result.one()
+        return int(like_count), bool(liked)
+
+    async def unlike(self, post_id: UUID, user_id: UUID) -> int | None:
+        post_exists = await self._session.execute(
+            select(PostModel.id).where(PostModel.id == post_id)
+        )
+        if post_exists.scalar_one_or_none() is None:
+            return None
+
+        await self._session.execute(
+            delete(PostLikeModel).where(
+                PostLikeModel.post_id == post_id,
+                PostLikeModel.user_id == user_id,
+            )
+        )
+        await self._session.commit()
         return await self.get_like_count(post_id)

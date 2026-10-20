@@ -144,6 +144,31 @@ async def like_post(
     return LikeResponse(post_id=post_id, like_count=like_count)
 
 
+@router.get("/{post_id}/like", response_model=LikeResponse, summary="Consultar like de publicación")
+async def get_post_like(
+    post_id: uuid.UUID,
+    user: User = Depends(get_current_profile),
+    post_repo: PostRepository = Depends(get_post_repository),
+) -> LikeResponse:
+    result = await post_repo.get_user_like(post_id, user.id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Post not found")
+    like_count, liked = result
+    return LikeResponse(post_id=post_id, like_count=like_count, liked=liked)
+
+
+@router.delete("/{post_id}/like", response_model=LikeResponse, summary="Quitar like de publicación")
+async def unlike_post(
+    post_id: uuid.UUID,
+    user: User = Depends(get_current_profile),
+    post_repo: PostRepository = Depends(get_post_repository),
+) -> LikeResponse:
+    like_count = await post_repo.unlike(post_id, user.id)
+    if like_count is None:
+        raise HTTPException(status_code=404, detail="Post not found")
+    return LikeResponse(post_id=post_id, like_count=like_count, liked=False)
+
+
 @router.post(
     "/",
     response_model=PostResponse,

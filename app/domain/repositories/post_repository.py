@@ -50,6 +50,16 @@ class PostRepository(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
+    async def get_user_like(self, post_id: UUID, user_id: UUID) -> tuple[int, bool] | None:
+        """Devuelve el total y si el usuario dio like; None si no existe el post."""
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    async def unlike(self, post_id: UUID, user_id: UUID) -> int | None:
+        """Elimina únicamente el like del usuario y devuelve el total; None si no existe el post."""
+        raise NotImplementedError
+
+    @abc.abstractmethod
     async def get_like_count(self, post_id: UUID) -> int:
         """Devuelve el total de likes de una publicación."""
         raise NotImplementedError
