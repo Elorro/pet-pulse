@@ -36,6 +36,19 @@ El sistema está diseñado bajo una lista estricta de **20 parámetros de seguri
 - Auditoría y trazabilidad de eventos críticos.
 - Configuración mediante variables de entorno validadas.
 
+## 🗄️ Esquema de la base de datos
+
+Supabase es la fuente de verdad del esquema. Cada cambio vive como un archivo SQL en
+`supabase/migrations/` y se aplica con la CLI de Supabase; ya no se usa Alembic.
+
+- **Nuevo cambio:** `supabase migration new <nombre>`, escribe el SQL y abre un PR.
+- **Aplicarlo en producción:** `supabase link --project-ref <ref>` y luego `supabase db push`.
+- **No edites tablas desde el dashboard** sin crear también la migración; si ocurre, captúralo
+  con `supabase db pull` para que el repositorio no se desincronice.
+- Los modelos de `app/infrastructure/db/models/` deben reflejar estas tablas. Las pruebas crean
+  las tablas desde los modelos (SQLite), así que un modelo desalineado no falla en las pruebas
+  pero sí en producción.
+
 ## 📂 Documentación Adicional
 
 - [Guía de IA y Edge Computing](README_AI_EDGE.md)

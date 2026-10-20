@@ -15,7 +15,6 @@ dependencies = [
     "sqlalchemy[asyncio]>=2.0.29,<3.0",
     "asyncpg>=0.29.0,<1.0",
     "psycopg2-binary>=2.9.9,<3.0",
-    "alembic>=1.13.0,<2.0",
     "pgvector>=0.3.0,<1.0",
     "python-dotenv>=1.0.1,<2.0",
     "pyjwt[crypto]>=2.9.0,<3.0",
@@ -39,8 +38,6 @@ testpaths = ["app/tests"]
 [tool.ruff]
 line-length = 100
 target-version = "py311"
-# Migraciones generadas por Alembic: se revisan a mano, no se reformatean.
-extend-exclude = ["alembic/versions"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP"]
@@ -66,7 +63,6 @@ email-validator = "^2.1.0"
 sqlalchemy = { extras = ["asyncio"], version = "^2.0.29" }
 asyncpg = "^0.29.0"
 psycopg2-binary = "^2.9.9"
-alembic = "^1.13.0"
 pgvector = "^0.3.0"
 python-dotenv = "^1.0.1"
 pyjwt = { version = "^2.9.0", extras = ["crypto"] }
