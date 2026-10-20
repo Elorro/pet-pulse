@@ -54,6 +54,13 @@ class PostResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     media_url: str | None
+    like_count: int = 0
+
+
+class LikeResponse(BaseModel):
+    post_id: uuid.UUID
+    like_count: int
+    liked: bool = True
 
 
 def _require_storage(storage: StorageService | None) -> StorageService:
@@ -109,7 +116,37 @@ async def list_posts(
     post_repo: PostRepository = Depends(get_post_repository),
 ) -> list[PostResponse]:
     posts = await post_repo.get_all_paginated(limit=limit, offset=offset)
-    return [_to_response(post) for post in posts]
+    like_counts = await post_repo.get_like_counts([post.id for post in posts])
+    return [
+        PostResponse(**_to_response(post).model_dump(), like_count=like_counts[post.id])
+        for post in posts
+    ]
+
+
+@router.get("/{post_id}", response_model=PostResponse, summary="Get post")
+async def get_post(
+    post_id: uuid.UUID,
+    post_repo: PostRepository = Depends(get_post_repository),
+) -> PostResponse:
+    post = await post_repo.get_by_id(post_id)
+    if post is None:
+        raise HTTPException(status_code=404, detail="Post not found")
+    return PostResponse(
+        **_to_response(post).model_dump(),
+        like_count=await post_repo.get_like_count(post_id),
+    )
+
+
+@router.post("/{post_id}/like", response_model=LikeResponse, summary="Like post")
+async def like_post(
+    post_id: uuid.UUID,
+    user: User = Depends(get_current_profile),
+    post_repo: PostRepository = Depends(get_post_repository),
+) -> LikeResponse:
+    like_count = await post_repo.like(post_id, user.id)
+    if like_count is None:
+        raise HTTPException(status_code=404, detail="Post not found")
+    return LikeResponse(post_id=post_id, like_count=like_count)
 
 
 @router.post(

@@ -5,6 +5,7 @@ concreta de base de datos, siguiendo el principio de inversión de dependencias.
 """
 
 import abc
+from uuid import UUID
 
 from app.domain.entities.post import Post
 
@@ -36,4 +37,24 @@ class PostRepository(abc.ABC):
         Returns:
             Lista de entidades Post correspondientes a la página solicitada.
         """
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    async def get_by_id(self, post_id: UUID) -> Post | None:
+        """Recupera una publicación por su identificador."""
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    async def like(self, post_id: UUID, user_id: UUID) -> int | None:
+        """Registra el like (si aún no existe) y devuelve el total; None si no existe el post."""
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    async def get_like_count(self, post_id: UUID) -> int:
+        """Devuelve el total de likes de una publicación."""
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    async def get_like_counts(self, post_ids: list[UUID]) -> dict[UUID, int]:
+        """Devuelve los totales de likes de varias publicaciones en una consulta."""
         raise NotImplementedError
