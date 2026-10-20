@@ -5,13 +5,17 @@ consultas paginadas y parametrizadas para mantener la seguridad y el
 desacoplamiento de la lógica de negocio.
 """
 
-from sqlalchemy import select
+from uuid import UUID
+
+from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.entities.post import Post
 from app.domain.repositories.post_repository import PostRepository
 from app.infrastructure.db.datetime_utils import as_utc
 from app.infrastructure.db.models.post_model import PostModel
+from app.infrastructure.db.models.post_like_model import PostLikeModel
 
 
 class SQLAlchemyPostRepository(PostRepository):
@@ -72,3 +76,53 @@ class SQLAlchemyPostRepository(PostRepository):
             )
             for post_orm in post_orms
         ]
+
+    async def get_by_id(self, post_id: UUID) -> Post | None:
+        result = await self._session.execute(select(PostModel).where(PostModel.id == post_id))
+        post_orm = result.scalar_one_or_none()
+        if post_orm is None:
+            return None
+        return Post(
+            id=post_orm.id,
+            author_id=post_orm.author_id,
+            content=post_orm.content,
+            created_at=as_utc(post_orm.created_at),
+            updated_at=as_utc(post_orm.created_at),
+            media_url=post_orm.media_url,
+        )
+
+    async def get_like_count(self, post_id: UUID) -> int:
+        result = await self._session.execute(
+            select(func.count()).select_from(PostLikeModel).where(PostLikeModel.post_id == post_id)
+        )
+        return int(result.scalar_one())
+
+    async def get_like_counts(self, post_ids: list[UUID]) -> dict[UUID, int]:
+        if not post_ids:
+            return {}
+        result = await self._session.execute(
+            select(PostLikeModel.post_id, func.count(PostLikeModel.id))
+            .where(PostLikeModel.post_id.in_(post_ids))
+            .group_by(PostLikeModel.post_id)
+        )
+        counts = {post_id: int(count) for post_id, count in result.all()}
+        return {post_id: counts.get(post_id, 0) for post_id in post_ids}
+
+    async def like(self, post_id: UUID, user_id: UUID) -> int | None:
+        post_exists = await self._session.execute(select(PostModel.id).where(PostModel.id == post_id))
+        if post_exists.scalar_one_or_none() is None:
+            return None
+
+        existing = await self._session.execute(
+            select(PostLikeModel.id).where(
+                PostLikeModel.post_id == post_id, PostLikeModel.user_id == user_id
+            )
+        )
+        if existing.scalar_one_or_none() is None:
+            self._session.add(PostLikeModel(post_id=post_id, user_id=user_id))
+            try:
+                await self._session.commit()
+            except IntegrityError:
+                # Una solicitud concurrente pudo insertar el mismo like primero.
+                await self._session.rollback()
+        return await self.get_like_count(post_id)

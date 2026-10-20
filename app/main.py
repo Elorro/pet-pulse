@@ -82,5 +82,5 @@ async def add_security_headers(
 # Los routers internos ya declaran preﬁjos de recurso (/auth y /posts),
 # por lo que aquí solo se añade el preﬁjo de versión /api/v1.
 # ---------------------------------------------------------------------------
-app.include_router(auth.router, prefix="/api/v1", tags=["Autenticación"])
-app.include_router(posts.router, prefix="/api/v1", tags=["Publicaciones"])
+app.include_router(auth.router, prefix="/api/v1")
+app.include_router(posts.router, prefix="/api/v1")
