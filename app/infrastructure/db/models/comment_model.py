@@ -8,9 +8,9 @@ from app.infrastructure.db.base import Base
 
 
 class CommentModel(Base):
-    """Modelo de la tabla existente `coment` en Supabase."""
+    """Modelo de la tabla existente `comment` en Supabase."""
 
-    __tablename__ = "coment"
+    __tablename__ = "comment"
 
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
