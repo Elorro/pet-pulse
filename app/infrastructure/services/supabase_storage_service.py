@@ -8,6 +8,7 @@ from app.application.interfaces.storage_service import (
     SignedUpload,
     StorageService,
     StorageServiceError,
+    StoredObject,
 )
 from supabase import acreate_client
 
@@ -45,6 +46,22 @@ class SupabaseStorageService(StorageService):
                 "Supabase Storage rechazó la consulta del objeto (%s)", type(exc).__name__
             )
             raise StorageServiceError("No se pudo consultar el objeto") from exc
+
+    async def get_object(self, path: str) -> StoredObject | None:
+        try:
+            client = await self._client()
+            info = await client.storage.from_(self._bucket).info(path)
+            metadata = info.get("metadata") or {}
+            size = info.get("size", metadata.get("size"))
+            content_type = info.get("mimetype") or metadata.get("mimetype")
+            if size is None:
+                return None
+            return StoredObject(size_bytes=int(size), content_type=content_type)
+        except (StorageException, StorageApiError) as exc:
+            if getattr(exc, "status", None) == 404 or getattr(exc, "status_code", None) == 404:
+                return None
+            logger.warning("Supabase Storage rechazó la metadata (%s)", type(exc).__name__)
+            raise StorageServiceError("No se pudo consultar la metadata") from exc
 
     def public_url(self, path: str) -> str:
         return f"{self._url.rstrip('/')}/storage/v1/object/public/{self._bucket}/{path}"

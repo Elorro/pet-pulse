@@ -47,7 +47,9 @@ class SQLAlchemyCommentRepository(CommentRepository):
             for comment, user in rows
         ]
 
-    async def create(self, post_id: UUID, user_id: UUID, content: str) -> Comment | None:
+    async def create(
+        self, post_id: UUID, user_id: UUID, content: str, media: str | None = None
+    ) -> Comment | None:
         post_exists = await self._session.execute(
             select(PostModel.id).where(PostModel.id == post_id)
         )
@@ -55,7 +57,8 @@ class SQLAlchemyCommentRepository(CommentRepository):
             return None
 
         comment = CommentModel(
-            id=uuid4(), created_at=datetime.now(UTC), post_id=post_id, text=content, user_id=user_id
+            id=uuid4(), created_at=datetime.now(UTC), post_id=post_id, text=content,
+            media=media, user_id=user_id
         )
         self._session.add(comment)
         await self._session.commit()
@@ -66,5 +69,5 @@ class SQLAlchemyCommentRepository(CommentRepository):
             content=content,
             created_at=as_utc(comment.created_at),
             updated_at=as_utc(comment.created_at),
-            media=None,
+            media=media,
         )

@@ -225,6 +225,55 @@
         ]
       }
     },
+    "/api/v1/posts/comment-media-uploads": {
+      "post": {
+        "tags": [
+          "posts"
+        ],
+        "summary": "Solicitar URL de carga para adjunto de comentario",
+        "description": "Acepta JPEG, PNG, WebP o GIF de hasta 5 MiB. La API vuelve a verificar tipo y tamaño del objeto al crear el comentario.",
+        "operationId": "create_comment_media_upload_api_v1_posts_comment_media_uploads_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommentMediaUploadCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaUploadResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Falta un token de autenticación válido"
+          },
+          "422": {
+            "description": "Tipo o tamaño no válido"
+          },
+          "502": {
+            "description": "No se pudo preparar la carga"
+          },
+          "503": {
+            "description": "Almacenamiento no configurado"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/posts/": {
       "get": {
         "tags": [
@@ -475,14 +524,13 @@
             "description": "La publicación no existe"
           },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "description": "La ruta, el MIME o el tamaño del adjunto no son válidos"
+          },
+          "502": {
+            "description": "No se pudo verificar el adjunto"
+          },
+          "503": {
+            "description": "Almacenamiento no configurado"
           }
         }
       }
@@ -656,6 +704,18 @@
             "maxLength": 5000,
             "minLength": 1,
             "title": "Content"
+          },
+          "media_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Media Path",
+            "description": "Ruta devuelta por POST /api/v1/posts/comment-media-uploads; debe pertenecer al usuario autenticado y estar cargada."
           }
         },
         "type": "object",
@@ -663,6 +723,33 @@
           "content"
         ],
         "title": "CommentCreate"
+      },
+      "CommentMediaUploadCreate": {
+        "properties": {
+          "content_type": {
+            "type": "string",
+            "enum": [
+              "image/jpeg",
+              "image/png",
+              "image/webp",
+              "image/gif"
+            ],
+            "title": "Content Type"
+          },
+          "file_size_bytes": {
+            "type": "integer",
+            "maximum": 5242880.0,
+            "exclusiveMinimum": 0.0,
+            "title": "File Size Bytes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "content_type",
+          "file_size_bytes"
+        ],
+        "title": "CommentMediaUploadCreate",
+        "description": "Solicitud firmada; file_size_bytes sirve para rechazar archivos grandes antes de subir."
       },
       "CommentResponse": {
         "properties": {
@@ -687,7 +774,7 @@
             ],
             "title": "Content"
           },
-          "media": {
+          "media_url": {
             "anyOf": [
               {
                 "type": "string"
@@ -696,7 +783,8 @@
                 "type": "null"
               }
             ],
-            "title": "Media"
+            "title": "Media Url",
+            "description": "URL pública renderizable del adjunto; null para comentarios solo de texto."
           },
           "created_at": {
             "type": "string",
@@ -712,7 +800,7 @@
           "id",
           "post_id",
           "content",
-          "media",
+          "media_url",
           "created_at",
           "author"
         ],
