@@ -22,6 +22,14 @@ class SignedUpload:
     upload_url: str
 
 
+@dataclass(frozen=True)
+class StoredObject:
+    """Metadata verificada del objeto que ya está guardado."""
+
+    size_bytes: int
+    content_type: str | None
+
+
 class StorageService(abc.ABC):
     @abc.abstractmethod
     async def create_signed_upload(self, path: str) -> SignedUpload:
@@ -29,6 +37,10 @@ class StorageService(abc.ABC):
 
     @abc.abstractmethod
     async def exists(self, path: str) -> bool:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    async def get_object(self, path: str) -> StoredObject | None:
         raise NotImplementedError
 
     @abc.abstractmethod

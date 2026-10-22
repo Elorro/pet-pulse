@@ -7,7 +7,7 @@ import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
 from app.api.deps import get_storage_service
-from app.application.interfaces.storage_service import SignedUpload, StorageService
+from app.application.interfaces.storage_service import SignedUpload, StorageService, StoredObject
 from app.core.auth import get_token_verifier
 from app.infrastructure.db.base import Base
 from app.infrastructure.db.session import engine
@@ -30,6 +30,7 @@ class FakeStorageService(StorageService):
     def __init__(self) -> None:
         self.paths: list[str] = []
         self.uploaded: set[str] = set()
+        self.objects: dict[str, StoredObject] = {}
         self.fail = False
 
     async def create_signed_upload(self, path: str) -> SignedUpload:
@@ -46,6 +47,13 @@ class FakeStorageService(StorageService):
 
             raise StorageServiceError
         return path in self.uploaded
+
+    async def get_object(self, path: str) -> StoredObject | None:
+        if self.fail:
+            from app.application.interfaces.storage_service import StorageServiceError
+
+            raise StorageServiceError
+        return self.objects.get(path)
 
     def public_url(self, path: str) -> str:
         return f"https://media.test/{path}"
