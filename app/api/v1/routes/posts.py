@@ -9,10 +9,16 @@ from uuid import uuid4
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
-from app.api.deps import get_current_profile, get_post_repository, get_storage_service
+from app.api.deps import (
+    get_comment_repository,
+    get_current_profile,
+    get_post_repository,
+    get_storage_service,
+)
 from app.application.interfaces.storage_service import StorageService, StorageServiceError
 from app.domain.entities.post import Post
 from app.domain.entities.user import User
+from app.domain.repositories.comment_repository import CommentRepository
 from app.domain.repositories.post_repository import PostRepository
 
 router = APIRouter(prefix="/posts", tags=["posts"])
@@ -63,6 +69,24 @@ class LikeResponse(BaseModel):
     liked: bool = True
 
 
+class CommentAuthorResponse(BaseModel):
+    id: uuid.UUID
+    username: str
+
+
+class CommentCreate(BaseModel):
+    content: str = Field(..., min_length=1, max_length=5000)
+
+
+class CommentResponse(BaseModel):
+    id: uuid.UUID
+    post_id: uuid.UUID
+    content: str | None
+    media: str | None
+    created_at: datetime
+    author: CommentAuthorResponse
+
+
 def _require_storage(storage: StorageService | None) -> StorageService:
     if storage is None:
         raise HTTPException(
@@ -81,6 +105,17 @@ def _to_response(post: Post, like_count: int = 0) -> PostResponse:
         updated_at=post.updated_at,
         media_url=post.media_url,
         like_count=like_count,
+    )
+
+
+def _to_comment_response(comment, author: User) -> CommentResponse:
+    return CommentResponse(
+        id=comment.id,
+        post_id=comment.post_id,
+        content=comment.content,
+        media=comment.media,
+        created_at=comment.created_at,
+        author=CommentAuthorResponse(id=author.id, username=author.username),
     )
 
 
@@ -130,6 +165,46 @@ async def get_post(
     if post is None:
         raise HTTPException(status_code=404, detail="Post not found")
     return _to_response(post, await post_repo.get_like_count(post_id))
+
+
+@router.get(
+    "/{post_id}/comments",
+    response_model=list[CommentResponse],
+    summary="Listar comentarios de una publicación",
+    responses={404: {"description": "La publicación no existe"}},
+)
+async def list_comments(
+    post_id: uuid.UUID,
+    post_repo: PostRepository = Depends(get_post_repository),
+    comment_repo: CommentRepository = Depends(get_comment_repository),
+) -> list[CommentResponse]:
+    if await post_repo.get_by_id(post_id) is None:
+        raise HTTPException(status_code=404, detail="Post not found")
+    comments = await comment_repo.get_for_post(post_id)
+    return [_to_comment_response(comment, author) for comment, author in comments]
+
+
+@router.post(
+    "/{post_id}/comments",
+    response_model=CommentResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Crear comentario",
+    description="Crea un comentario en nombre del usuario autenticado con Supabase.",
+    responses={
+        401: {"description": "Falta un token de autenticación válido"},
+        404: {"description": "La publicación no existe"},
+    },
+)
+async def create_comment(
+    post_id: uuid.UUID,
+    payload: CommentCreate,
+    author: User = Depends(get_current_profile),
+    comment_repo: CommentRepository = Depends(get_comment_repository),
+) -> CommentResponse:
+    comment = await comment_repo.create(post_id, author.id, payload.content)
+    if comment is None:
+        raise HTTPException(status_code=404, detail="Post not found")
+    return _to_comment_response(comment, author)
 
 
 @router.post("/{post_id}/like", response_model=LikeResponse, summary="Like post")

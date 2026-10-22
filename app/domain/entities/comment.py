@@ -19,6 +19,7 @@ class Comment:
     id: UUID
     post_id: UUID
     author_id: UUID
-    content: str
+    content: str | None
     created_at: datetime
     updated_at: datetime
+    media: str | None = None
