@@ -36,6 +36,21 @@ El sistema está diseñado bajo una lista estricta de **20 parámetros de seguri
 - Auditoría y trazabilidad de eventos críticos.
 - Configuración mediante variables de entorno validadas.
 
+### Verificación de correo
+
+En producción, configura `ENVIRONMENT=production` y
+`AUTH_EMAIL_REDIRECT_TO=https://petpulseweb.vercel.app`. La API la envía a
+Supabase como `email_redirect_to` al registrar al usuario y falla al iniciar si
+falta o apunta a localhost. En desarrollo se puede omitir para conservar el
+destino local configurado en Supabase.
+
+En Supabase Dashboard, en **Authentication > URL Configuration**, configura
+**Site URL** con `https://petpulseweb.vercel.app` y agrega ese valor exacto en
+**Redirect URLs**. Si la plantilla de confirmación
+usa `{{ .ConfirmationURL }}`, el botón/enlace debe mantener esa variable: el
+parámetro de redirección indicado en el signup será aplicado por Auth. No se
+debe agregar una URL localhost a la configuración de producción.
+
 ## 🗄️ Esquema de la base de datos
 
 Supabase es la fuente de verdad del esquema. Cada cambio vive como un archivo SQL en

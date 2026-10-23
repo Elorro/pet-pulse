@@ -41,7 +41,11 @@ bearer_scheme = HTTPBearer(auto_error=False)
 def get_auth_service() -> AuthService:
     """Proveedor de identidad (Supabase) usado por los endpoints de /auth."""
     settings = get_settings()
-    return SupabaseAuthService(settings.supabase_url, settings.supabase_anon_key)
+    return SupabaseAuthService(
+        settings.supabase_url,
+        settings.supabase_anon_key,
+        settings.auth_email_redirect_to,
+    )
 
 
 @lru_cache

@@ -41,11 +41,14 @@ def _translate(exc: AuthError) -> AuthServiceError:
 
 
 class SupabaseAuthService(AuthService):
-    def __init__(self, supabase_url: str, anon_key: str) -> None:
+    def __init__(
+        self, supabase_url: str, anon_key: str, email_redirect_to: str | None = None
+    ) -> None:
         if not supabase_url or not anon_key:
             raise ValueError("SUPABASE_URL y SUPABASE_ANON_KEY son obligatorios")
         self._url = supabase_url
         self._anon_key = anon_key
+        self._email_redirect_to = email_redirect_to
 
     async def _client(self) -> AsyncClient:
         return await acreate_client(
@@ -57,12 +60,11 @@ class SupabaseAuthService(AuthService):
     async def sign_up(self, email: str, password: str, username: str) -> SignUpResult:
         client = await self._client()
         try:
+            options: dict[str, object] = {"data": {"username": username}}
+            if self._email_redirect_to:
+                options["email_redirect_to"] = self._email_redirect_to
             response = await client.auth.sign_up(
-                {
-                    "email": email,
-                    "password": password,
-                    "options": {"data": {"username": username}},
-                }
+                {"email": email, "password": password, "options": options}
             )
         except AuthError as exc:
             logger.warning(
