@@ -44,15 +44,24 @@ async def test_storage_sdk_error_is_translated(monkeypatch):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "metadata",
+    ("info", "expected_size", "expected_content_type"),
     [
-        {"mimetype": "image/jpeg", "size": 123},
-        {"contentType": "image/png", "size": 234},
+        # Supabase Storage object/info exposes these fields at the top level.
+        ({"content_type": "image/gif", "size": 123}, 123, "image/gif"),
+        # Keep compatibility with camelized API responses and metadata variants.
+        ({"contentType": "image/png", "size": 234}, 234, "image/png"),
+        (
+            {"metadata": {"mimetype": "image/jpeg", "size": 345}},
+            345,
+            "image/jpeg",
+        ),
     ],
 )
-async def test_get_object_reads_mime_and_size_from_storage_metadata(monkeypatch, metadata):
+async def test_get_object_reads_mime_and_size_from_storage_info(
+    monkeypatch, info, expected_size, expected_content_type
+):
     bucket = MagicMock()
-    bucket.info = AsyncMock(return_value={"metadata": metadata})
+    bucket.info = AsyncMock(return_value=info)
     client = MagicMock()
     client.storage.from_.return_value = bucket
     monkeypatch.setattr(module, "acreate_client", AsyncMock(return_value=client))
@@ -61,5 +70,5 @@ async def test_get_object_reads_mime_and_size_from_storage_metadata(monkeypatch,
     obj = await service.get_object("user/image.jpg")
 
     assert obj is not None
-    assert obj.size_bytes == metadata["size"]
-    assert obj.content_type in {"image/jpeg", "image/png"}
+    assert obj.size_bytes == expected_size
+    assert obj.content_type == expected_content_type
