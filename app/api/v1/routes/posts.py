@@ -35,6 +35,13 @@ ALLOWED_MEDIA_TYPES = {
 MAX_MEDIA_SIZE_BYTES = 5 * 1024 * 1024
 
 
+def _normalize_content_type(value: str | None) -> str | None:
+    """Return the MIME essence without parameters, preserving the allowlist check."""
+    if value is None:
+        return None
+    return value.split(";", 1)[0].strip().lower()
+
+
 class PostCreate(BaseModel):
     """Esquema de entrada para crear una publicación."""
 
@@ -284,7 +291,7 @@ async def create_comment(
         }[extension]
         if stored.size_bytes > MAX_MEDIA_SIZE_BYTES:
             raise HTTPException(status_code=422, detail="El adjunto supera el máximo de 5 MB")
-        if stored.size_bytes <= 0 or stored.content_type != expected_type:
+        if stored.size_bytes <= 0 or _normalize_content_type(stored.content_type) != expected_type:
             raise HTTPException(status_code=422, detail="El tipo del adjunto no coincide")
         media_path = payload.media_path
     comment = await comment_repo.create(post_id, author.id, payload.content, media_path)
