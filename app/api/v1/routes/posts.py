@@ -1,5 +1,6 @@
 """Router para el foro de publicaciones."""
 
+import logging
 import re
 import uuid
 from datetime import UTC, datetime
@@ -25,6 +26,7 @@ from app.domain.repositories.comment_repository import CommentRepository
 from app.domain.repositories.post_repository import PostRepository
 
 router = APIRouter(prefix="/posts", tags=["posts"])
+logger = logging.getLogger(__name__)
 
 ALLOWED_MEDIA_TYPES = {
     "image/jpeg": "jpg",
@@ -291,7 +293,16 @@ async def create_comment(
         }[extension]
         if stored.size_bytes > MAX_MEDIA_SIZE_BYTES:
             raise HTTPException(status_code=422, detail="El adjunto supera el máximo de 5 MB")
-        if stored.size_bytes <= 0 or _normalize_content_type(stored.content_type) != expected_type:
+        actual_type = _normalize_content_type(stored.content_type)
+        if stored.size_bytes <= 0 or actual_type != expected_type:
+            logger.warning(
+                "Comment attachment rejected: object_name=%s expected_mime=%s "
+                "stored_mime=%r size_bytes=%d",
+                payload.media_path.rsplit("/", 1)[-1],
+                expected_type,
+                stored.content_type,
+                stored.size_bytes,
+            )
             raise HTTPException(status_code=422, detail="El tipo del adjunto no coincide")
         media_path = payload.media_path
     comment = await comment_repo.create(post_id, author.id, payload.content, media_path)
