@@ -1,6 +1,7 @@
 """Pruebas del adaptador sobre el SDK de Supabase, sin red."""
 
 import uuid
+from types import SimpleNamespace
 
 import pytest
 from supabase_auth.errors import AuthApiError, AuthSessionMissingError
@@ -19,6 +20,54 @@ def test_requires_url_and_key():
         SupabaseAuthService("", "key")
     with pytest.raises(ValueError):
         SupabaseAuthService("https://x.supabase.co", "")
+
+
+@pytest.mark.asyncio
+async def test_sign_up_passes_configured_email_redirect(monkeypatch):
+    captured = {}
+
+    class FakeAuth:
+        async def sign_up(self, payload):
+            captured.update(payload)
+            return SimpleNamespace(
+                user=SimpleNamespace(id=str(uuid.uuid4()), email=payload["email"]),
+                session=None,
+            )
+
+    service = SupabaseAuthService(
+        "https://test-project.supabase.co", "anon", "https://petpulse.example/verify"
+    )
+    async def fake_client():
+        return SimpleNamespace(auth=FakeAuth())
+
+    monkeypatch.setattr(service, "_client", fake_client)
+    result = await service.sign_up("ana@example.com", "password123", "ana")
+
+    assert result.email == "ana@example.com"
+    assert captured["options"]["email_redirect_to"] == "https://petpulse.example/verify"
+    assert captured["options"]["data"] == {"username": "ana"}
+
+
+@pytest.mark.asyncio
+async def test_sign_up_without_redirect_preserves_supabase_default(monkeypatch):
+    captured = {}
+
+    class FakeAuth:
+        async def sign_up(self, payload):
+            captured.update(payload)
+            return SimpleNamespace(
+                user=SimpleNamespace(id=str(uuid.uuid4()), email=payload["email"]),
+                session=None,
+            )
+
+    service = SupabaseAuthService("https://test-project.supabase.co", "anon")
+    async def fake_client():
+        return SimpleNamespace(auth=FakeAuth())
+
+    monkeypatch.setattr(service, "_client", fake_client)
+    await service.sign_up("ana@example.com", "password123", "ana")
+
+    assert "email_redirect_to" not in captured["options"]
 
 
 def test_to_session_maps_sdk_session():
