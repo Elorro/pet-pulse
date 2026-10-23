@@ -56,10 +56,12 @@ class SupabaseStorageService(StorageService):
                 metadata = {}
             size = info.get("size", metadata.get("size"))
             content_type = (
-                info.get("mimetype")
+                info.get("content_type")
+                or info.get("contentType")
+                or info.get("mimetype")
                 or metadata.get("mimetype")
-                or metadata.get("contentType")
                 or metadata.get("content_type")
+                or metadata.get("contentType")
             )
             if size is None:
                 return None
