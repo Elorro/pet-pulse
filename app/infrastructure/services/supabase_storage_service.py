@@ -51,9 +51,16 @@ class SupabaseStorageService(StorageService):
         try:
             client = await self._client()
             info = await client.storage.from_(self._bucket).info(path)
-            metadata = info.get("metadata") or {}
+            metadata = info.get("metadata")
+            if not isinstance(metadata, dict):
+                metadata = {}
             size = info.get("size", metadata.get("size"))
-            content_type = info.get("mimetype") or metadata.get("mimetype")
+            content_type = (
+                info.get("mimetype")
+                or metadata.get("mimetype")
+                or metadata.get("contentType")
+                or metadata.get("content_type")
+            )
             if size is None:
                 return None
             return StoredObject(size_bytes=int(size), content_type=content_type)

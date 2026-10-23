@@ -6,12 +6,19 @@ import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
 from app.api.deps import get_storage_service
+from app.api.v1.routes.posts import _normalize_content_type
 from app.application.interfaces.storage_service import SignedUpload, StorageService, StoredObject
 from app.core.auth import get_token_verifier
 from app.infrastructure.db.base import Base
 from app.infrastructure.db.session import engine
 from app.main import app
 from app.tests.integration.test_auth_routes import FakeVerifier, token_for
+
+
+def test_normalize_storage_mime_parameters_without_changing_mime_essence():
+    assert _normalize_content_type(" IMAGE/PNG ; charset=binary ") == "image/png"
+    assert _normalize_content_type("image/jpeg") == "image/jpeg"
+    assert _normalize_content_type("application/octet-stream") == "application/octet-stream"
 
 
 class FakeStorage(StorageService):
@@ -26,6 +33,10 @@ class FakeStorage(StorageService):
 
     async def get_object(self, path: str) -> StoredObject | None:
         return self.objects.get(path)
+
+    async def put(self, path: str, content_type: str, body: bytes) -> None:
+        """Modela el PUT firmado y persiste el MIME que Storage leyó del header."""
+        self.objects[path] = StoredObject(len(body), content_type)
 
     def public_url(self, path: str) -> str:
         return f"https://media.test/{path}"
@@ -173,6 +184,7 @@ async def test_comment_media_association_checks_owner_metadata_and_returns_url(c
         headers=headers,
     )
     assert wrong_type.status_code == 422
+    assert wrong_type.json() == {"detail": "El tipo del adjunto no coincide"}
 
     storage.objects[own_path] = StoredObject(42, "image/png")
     created = await client.post(
@@ -193,3 +205,43 @@ async def test_comment_media_association_checks_owner_metadata_and_returns_url(c
     assert text_only.json()["media_url"] is None
     listed = await client.get(f"/api/v1/posts/{post_id}/comments")
     assert listed.json()[0]["media_url"] == f"https://media.test/{own_path}"
+
+
+async def test_jpeg_and_png_signed_put_mime_can_be_read_and_attached(client):
+    storage = FakeStorage()
+    app.dependency_overrides[get_storage_service] = lambda: storage
+    user_id = uuid.uuid4()
+    headers = {"Authorization": f"Bearer {token_for(user_id)}"}
+    post = await client.post("/api/v1/posts/", json={"content": "post"}, headers=headers)
+    post_id = post.json()["id"]
+
+    for content_type, body in (
+        ("image/jpeg", b"fake-jpeg-bytes"),
+        ("image/png", b"fake-png-bytes"),
+    ):
+        upload = await client.post(
+            "/api/v1/posts/comment-media-uploads",
+            json={"content_type": content_type, "file_size_bytes": len(body)},
+            headers=headers,
+        )
+        assert upload.status_code == 201
+        path = upload.json()["path"]
+        assert upload.json()["upload_url"].endswith(path)
+
+        # El browser hace PUT a la URL; Storage registra el Content-Type de ese PUT.
+        stored_content_type = (
+            f"{content_type}; charset=binary" if content_type == "image/png" else content_type
+        )
+        await storage.put(path, stored_content_type, body)
+        stored = await storage.get_object(path)
+        assert stored is not None
+        assert stored.content_type == stored_content_type
+        assert stored.size_bytes == len(body)
+
+        created = await client.post(
+            f"/api/v1/posts/{post_id}/comments",
+            json={"content": "foto", "media_path": path},
+            headers=headers,
+        )
+        assert created.status_code == 201
+        assert created.json()["media_url"] == f"https://media.test/{path}"
