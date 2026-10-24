@@ -68,3 +68,11 @@ Supabase es la fuente de verdad del esquema. Cada cambio vive como un archivo SQ
 
 - [Guía de IA y Edge Computing](README_AI_EDGE.md)
 - [Especificación de la Arquitectura Móvil](README_MOBILE.md)
+
+## Perfil autenticado
+
+`GET /api/v1/auth/me` devuelve el perfil asociado al usuario del JWT Supabase
+enviado como `Authorization: Bearer <access_token>`. No recibe un ID de usuario.
+La respuesta incluye `id`, `username`, `full_name`, `photo_url`, `email` y
+`created_at`. `full_name` y `photo_url` pueden ser `null`; la API crea el perfil
+local en la primera llamada autenticada si todavía no existe.

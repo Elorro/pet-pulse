@@ -15,6 +15,8 @@ def _to_entity(user_orm: UserModel) -> User:
     return User(
         id=user_orm.id,
         username=user_orm.username,
+        full_name=user_orm.full_name,
+        photo_url=user_orm.photo_url,
         email=user_orm.email,
         created_at=as_utc(user_orm.created_at),
         updated_at=as_utc(user_orm.created_at),  # El MVP no registra edición por separado
@@ -31,7 +33,9 @@ class SQLAlchemyUserRepository(UserRepository):
         user_orm = UserModel(
             id=user.id,
             username=user.username,
+            full_name=user.full_name,
             email=user.email,
+            photo_url=user.photo_url,
             created_at=user.created_at,
         )
         self._session.add(user_orm)

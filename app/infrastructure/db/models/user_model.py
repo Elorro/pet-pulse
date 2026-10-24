@@ -17,7 +17,9 @@ class UserModel(Base):
 
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True)
     username: Mapped[str] = mapped_column(String(50), nullable=False, unique=True)
+    full_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
     email: Mapped[str | None] = mapped_column(String(255), nullable=True, unique=True)
+    photo_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
     )
