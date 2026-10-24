@@ -84,9 +84,40 @@ async def test_me_creates_profile_on_first_call(client):
     assert first.status_code == 200
     assert first.json()["id"] == str(user_id)
     assert first.json()["username"] == "pepe"
+    assert first.json()["full_name"] is None
+    assert first.json()["photo_url"] is None
 
     second = await client.get("/api/v1/auth/me", headers=headers)
     assert second.json() == first.json()
+
+
+async def test_me_returns_profile_name_and_photo_from_authenticated_user(client):
+    user_id = uuid.uuid4()
+    access_token = token_for(
+        user_id,
+        user_metadata={
+            "username": "ana",
+            "full_name": "Ana Pérez",
+            "photo_url": "https://cdn.example.com/ana.jpg",
+        },
+    )
+    headers = {"Authorization": f"Bearer {access_token}"}
+
+    response = await client.get("/api/v1/auth/me", headers=headers)
+
+    assert response.status_code == 200
+    assert response.json()["id"] == str(user_id)
+    assert response.json()["username"] == "ana"
+    assert response.json()["full_name"] == "Ana Pérez"
+    assert response.json()["photo_url"] == "https://cdn.example.com/ana.jpg"
+
+
+async def test_me_does_not_accept_an_arbitrary_user_id(client):
+    response = await client.get(
+        f"/api/v1/auth/me/{uuid.uuid4()}",
+        headers={"Authorization": f"Bearer {token_for(uuid.uuid4())}"},
+    )
+    assert response.status_code == 404
 
 
 async def test_me_falls_back_to_generated_username(client):

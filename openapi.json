@@ -996,6 +996,28 @@
             "type": "string",
             "title": "Username"
           },
+          "full_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Full Name"
+          },
+          "photo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Photo Url"
+          },
           "email": {
             "anyOf": [
               {
@@ -1017,6 +1039,8 @@
         "required": [
           "id",
           "username",
+          "full_name",
+          "photo_url",
           "email",
           "created_at"
         ],

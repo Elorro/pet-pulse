@@ -23,3 +23,5 @@ class User:
     email: str | None
     created_at: datetime
     updated_at: datetime
+    full_name: str | None = None
+    photo_url: str | None = None

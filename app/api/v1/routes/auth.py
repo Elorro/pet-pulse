@@ -67,6 +67,8 @@ class ProfileResponse(BaseModel):
 
     id: UUID
     username: str
+    full_name: str | None
+    photo_url: str | None
     email: str | None
     created_at: datetime
 
@@ -184,6 +186,8 @@ async def me(profile: User = Depends(get_current_profile)) -> ProfileResponse:
     return ProfileResponse(
         id=profile.id,
         username=profile.username,
+        full_name=profile.full_name,
+        photo_url=profile.photo_url,
         email=profile.email,
         created_at=profile.created_at,
     )

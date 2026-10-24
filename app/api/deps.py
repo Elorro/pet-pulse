@@ -165,6 +165,8 @@ async def get_current_profile(
     user = User(
         id=auth_user.id,
         username=_default_username(auth_user),
+        full_name=_profile_metadata(auth_user, "full_name", 120),
+        photo_url=_profile_metadata(auth_user, "photo_url", 2048),
         email=auth_user.email,
         created_at=now,
         updated_at=now,
@@ -188,3 +190,11 @@ async def get_current_profile(
                 detail="No se pudo crear el perfil por un conflicto de unicidad",
             ) from exc
     return user
+
+
+def _profile_metadata(auth_user: AuthUser, key: str, max_length: int) -> str | None:
+    metadata = auth_user.claims.get("user_metadata") or {}
+    value = metadata.get(key)
+    if isinstance(value, str) and value.strip():
+        return value.strip()[:max_length]
+    return None
