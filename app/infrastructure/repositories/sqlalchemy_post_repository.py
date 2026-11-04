@@ -77,6 +77,29 @@ class SQLAlchemyPostRepository(PostRepository):
             for post_orm in post_orms
         ]
 
+    async def get_by_author_paginated(
+        self, author_id: UUID, limit: int, offset: int
+    ) -> list[Post]:
+        stmt = (
+            select(PostModel)
+            .where(PostModel.author_id == author_id)
+            .order_by(PostModel.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        result = await self._session.execute(stmt)
+        return [
+            Post(
+                id=row.id,
+                author_id=row.author_id,
+                content=row.content,
+                created_at=as_utc(row.created_at),
+                updated_at=as_utc(row.created_at),
+                media_url=row.media_url,
+            )
+            for row in result.scalars().all()
+        ]
+
     async def get_by_id(self, post_id: UUID) -> Post | None:
         result = await self._session.execute(select(PostModel).where(PostModel.id == post_id))
         post_orm = result.scalar_one_or_none()

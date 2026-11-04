@@ -15,6 +15,7 @@ from app.api.deps import (
     get_current_profile,
     get_post_repository,
     get_storage_service,
+    get_user_repository,
 )
 from app.application.interfaces.storage_service import (
     StorageService,
@@ -24,6 +25,7 @@ from app.domain.entities.post import Post
 from app.domain.entities.user import User
 from app.domain.repositories.comment_repository import CommentRepository
 from app.domain.repositories.post_repository import PostRepository
+from app.domain.repositories.user_repository import UserRepository
 
 router = APIRouter(prefix="/posts", tags=["posts"])
 logger = logging.getLogger(__name__)
@@ -80,6 +82,19 @@ class PostResponse(BaseModel):
     updated_at: datetime
     media_url: str | None
     like_count: int = 0
+
+
+class PostAuthorResponse(BaseModel):
+    """Campos públicos del autor incluidos en una tarjeta del feed."""
+
+    id: uuid.UUID
+    username: str
+    full_name: str | None
+    photo_url: str | None
+
+
+class ProfilePostResponse(PostResponse):
+    author: PostAuthorResponse
 
 
 class LikeResponse(BaseModel):
@@ -219,6 +234,43 @@ async def list_posts(
     posts = await post_repo.get_all_paginated(limit=limit, offset=offset)
     like_counts = await post_repo.get_like_counts([post.id for post in posts])
     return [_to_response(post, like_counts[post.id]) for post in posts]
+
+
+@router.get(
+    "/by-username/{username}",
+    response_model=list[ProfilePostResponse],
+    summary="Listar publicaciones de un perfil",
+    description=(
+        "Obtiene las publicaciones públicas del usuario indicado, ordenadas de más nuevas "
+        "a más antiguas. "
+        "Usa limit y offset como el feed comunitario. El autor incluye solo id, username, "
+        "full_name y photo_url; nunca se devuelve su email. Un usuario inexistente responde 404; "
+        "un perfil existente sin publicaciones responde 200 con una lista vacía."
+    ),
+    responses={404: {"description": "No existe un perfil con ese username"}},
+)
+async def list_profile_posts(
+    username: str,
+    limit: int = Query(10, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    post_repo: PostRepository = Depends(get_post_repository),
+    user_repo: UserRepository = Depends(get_user_repository),
+) -> list[ProfilePostResponse]:
+    user = await user_repo.get_by_username(username)
+    if user is None:
+        raise HTTPException(status_code=404, detail="Profile not found")
+    posts = await post_repo.get_by_author_paginated(user.id, limit=limit, offset=offset)
+    like_counts = await post_repo.get_like_counts([post.id for post in posts])
+    author = PostAuthorResponse(
+        id=user.id,
+        username=user.username,
+        full_name=user.full_name,
+        photo_url=user.photo_url,
+    )
+    return [
+        ProfilePostResponse(**_to_response(post, like_counts[post.id]).model_dump(), author=author)
+        for post in posts
+    ]
 
 
 @router.get("/{post_id}", response_model=PostResponse, summary="Get post")

@@ -380,6 +380,79 @@
         }
       }
     },
+    "/api/v1/posts/by-username/{username}": {
+      "get": {
+        "tags": [
+          "posts"
+        ],
+        "summary": "Listar publicaciones de un perfil",
+        "description": "Obtiene las publicaciones públicas del usuario indicado, ordenadas de más nuevas a más antiguas. Usa limit y offset como el feed comunitario. El autor incluye solo id, username, full_name y photo_url; nunca se devuelve su email. Un usuario inexistente responde 404; un perfil existente sin publicaciones responde 200 con una lista vacía.",
+        "operationId": "list_profile_posts_api_v1_posts_by_username__username__get",
+        "parameters": [
+          {
+            "name": "username",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Username"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 10,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProfilePostResponse"
+                  },
+                  "title": "Response List Profile Posts Api V1 Posts By Username  Username  Get"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No existe un perfil con ese username"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/posts/{post_id}": {
       "get": {
         "tags": [
@@ -903,6 +976,50 @@
         "title": "MediaUploadResponse",
         "description": "Ruta de almacenamiento y URL temporal para la carga directa."
       },
+      "PostAuthorResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "full_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Full Name"
+          },
+          "photo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Photo Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "username",
+          "full_name",
+          "photo_url"
+        ],
+        "title": "PostAuthorResponse",
+        "description": "Campos públicos del autor incluidos en una tarjeta del feed."
+      },
       "PostCreate": {
         "properties": {
           "content": {
@@ -984,6 +1101,64 @@
         ],
         "title": "PostResponse",
         "description": "Esquema de salida para una publicación del foro."
+      },
+      "ProfilePostResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "author_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Author Id"
+          },
+          "content": {
+            "type": "string",
+            "title": "Content"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "media_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Media Url"
+          },
+          "like_count": {
+            "type": "integer",
+            "title": "Like Count",
+            "default": 0
+          },
+          "author": {
+            "$ref": "#/components/schemas/PostAuthorResponse"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "author_id",
+          "content",
+          "created_at",
+          "updated_at",
+          "media_url",
+          "author"
+        ],
+        "title": "ProfilePostResponse"
       },
       "ProfileResponse": {
         "properties": {
