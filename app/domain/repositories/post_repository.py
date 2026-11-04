@@ -40,6 +40,13 @@ class PostRepository(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
+    async def get_by_author_paginated(
+        self, author_id: UUID, limit: int, offset: int
+    ) -> list[Post]:
+        """Recupera publicaciones de un autor en orden cronológico descendente."""
+        raise NotImplementedError
+
+    @abc.abstractmethod
     async def get_by_id(self, post_id: UUID) -> Post | None:
         """Recupera una publicación por su identificador."""
         raise NotImplementedError

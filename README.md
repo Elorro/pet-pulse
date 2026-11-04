@@ -76,3 +76,17 @@ enviado como `Authorization: Bearer <access_token>`. No recibe un ID de usuario.
 La respuesta incluye `id`, `username`, `full_name`, `photo_url`, `email` y
 `created_at`. `full_name` y `photo_url` pueden ser `null`; la API crea el perfil
 local en la primera llamada autenticada si todavía no existe.
+
+## Feed de publicaciones por perfil
+
+`GET /api/v1/posts/by-username/{username}` devuelve, sin autenticación, las
+publicaciones públicas del perfil indicado, de más nuevas a más antiguas. Acepta
+`limit` (opcional, 1–100, predeterminado 10) y `offset` (opcional, mínimo 0,
+predeterminado 0), igual que el feed comunitario `GET /api/v1/posts/`, que sigue
+incluyendo publicaciones de todos los usuarios. Un username inexistente responde
+`404`; un perfil existente sin publicaciones responde `200` con `[]`.
+
+Cada elemento conserva los campos de publicación (`id`, `author_id`, `content`,
+`created_at`, `updated_at`, `media_url`, `like_count`) y agrega `author` con
+`id`, `username`, `full_name` y `photo_url`. `full_name`, `photo_url` y `media_url`
+pueden ser `null`. La respuesta no incluye email ni otros datos privados.
