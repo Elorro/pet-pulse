@@ -66,7 +66,15 @@ class CommentMediaUploadCreate(MediaUploadCreate):
 
 
 class MediaUploadResponse(BaseModel):
-    """Ruta de almacenamiento y URL temporal para la carga directa."""
+    """Ruta, URL temporal de carga y URL pública del objeto."""
+
+    path: str
+    upload_url: str
+    public_url: str
+
+
+class CommentMediaUploadResponse(BaseModel):
+    """Respuesta existente para cargas de adjuntos de comentarios."""
 
     path: str
     upload_url: str
@@ -186,12 +194,16 @@ async def create_media_upload(
         signed = await storage.create_signed_upload(path)
     except StorageServiceError as exc:
         raise HTTPException(status_code=502, detail="No se pudo preparar la carga") from exc
-    return MediaUploadResponse(path=signed.path, upload_url=signed.upload_url)
+    return MediaUploadResponse(
+        path=signed.path,
+        upload_url=signed.upload_url,
+        public_url=storage.public_url(signed.path),
+    )
 
 
 @router.post(
     "/comment-media-uploads",
-    response_model=MediaUploadResponse,
+    response_model=CommentMediaUploadResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Solicitar URL de carga para adjunto de comentario",
     description=(
@@ -209,7 +221,7 @@ async def create_comment_media_upload(
     payload: CommentMediaUploadCreate,
     author: User = Depends(get_current_profile),
     storage: StorageService | None = Depends(get_storage_service),
-) -> MediaUploadResponse:
+) -> CommentMediaUploadResponse:
     storage = _require_storage(storage)
     ext = ALLOWED_MEDIA_TYPES[payload.content_type]
     path = f"{author.id}/{uuid4()}.{ext}"
@@ -217,7 +229,7 @@ async def create_comment_media_upload(
         signed = await storage.create_signed_upload(path)
     except StorageServiceError as exc:
         raise HTTPException(status_code=502, detail="No se pudo preparar la carga") from exc
-    return MediaUploadResponse(path=signed.path, upload_url=signed.upload_url)
+    return CommentMediaUploadResponse(path=signed.path, upload_url=signed.upload_url)
 
 
 @router.get(

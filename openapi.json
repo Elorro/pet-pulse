@@ -177,6 +177,50 @@
             "HTTPBearer": []
           }
         ]
+      },
+      "patch": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Actualizar el perfil del usuario autenticado",
+        "description": "Actualiza parcialmente username, full_name y photo_url. La foto debe cargarse mediante el flujo de URLs firmadas de /api/v1/posts/media-uploads y luego enviarse como URL pública. id, email y created_at no son editables.",
+        "operationId": "update_me_api_v1_auth_me_patch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProfileUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Falta un token de autenticación válido"
+          },
+          "409": {
+            "description": "El username ya está asociado a otro perfil"
+          },
+          "422": {
+            "description": "Campos o formatos no válidos"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/api/v1/posts/media-uploads": {
@@ -249,7 +293,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MediaUploadResponse"
+                  "$ref": "#/components/schemas/CommentMediaUploadResponse"
                 }
               }
             }
@@ -824,6 +868,25 @@
         "title": "CommentMediaUploadCreate",
         "description": "Solicitud firmada; file_size_bytes sirve para rechazar archivos grandes antes de subir."
       },
+      "CommentMediaUploadResponse": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "upload_url": {
+            "type": "string",
+            "title": "Upload Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "path",
+          "upload_url"
+        ],
+        "title": "CommentMediaUploadResponse",
+        "description": "Respuesta existente para cargas de adjuntos de comentarios."
+      },
       "CommentResponse": {
         "properties": {
           "id": {
@@ -966,15 +1029,20 @@
           "upload_url": {
             "type": "string",
             "title": "Upload Url"
+          },
+          "public_url": {
+            "type": "string",
+            "title": "Public Url"
           }
         },
         "type": "object",
         "required": [
           "path",
-          "upload_url"
+          "upload_url",
+          "public_url"
         ],
         "title": "MediaUploadResponse",
-        "description": "Ruta de almacenamiento y URL temporal para la carga directa."
+        "description": "Ruta, URL temporal de carga y URL pública del objeto."
       },
       "PostAuthorResponse": {
         "properties": {
@@ -1221,6 +1289,54 @@
         ],
         "title": "ProfileResponse",
         "description": "Perfil público del usuario autenticado."
+      },
+      "ProfileUpdateRequest": {
+        "properties": {
+          "username": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50,
+                "minLength": 3,
+                "pattern": "^[A-Za-z0-9_]+$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
+          },
+          "full_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 120,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Full Name"
+          },
+          "photo_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2048,
+                "minLength": 1,
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Photo Url"
+          }
+        },
+        "type": "object",
+        "title": "ProfileUpdateRequest",
+        "description": "Campos editables del perfil; los omitidos conservan su valor actual."
       },
       "RefreshRequest": {
         "properties": {
