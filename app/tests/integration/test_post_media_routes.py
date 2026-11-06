@@ -87,6 +87,11 @@ async def test_media_upload_validates_type_and_creates_server_path(client, stora
     path = response.json()["path"]
     assert path.startswith(f"{user_id}/")
     assert path.endswith(".webp")
+    assert response.json() == {
+        "path": path,
+        "upload_url": f"https://upload.test/{path}",
+        "public_url": f"https://media.test/{path}",
+    }
     assert storage.paths == [path]
 
 

@@ -35,6 +35,11 @@ class UserRepository(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
+    async def update_profile(self, user: User) -> User:
+        """Actualiza solo username, full_name y photo_url del perfil existente."""
+        raise NotImplementedError
+
+    @abc.abstractmethod
     async def rollback(self) -> None:
         """Limpia la transacción tras un error de persistencia."""
         raise NotImplementedError

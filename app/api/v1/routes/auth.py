@@ -10,7 +10,8 @@ from datetime import datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, HttpUrl, field_validator, model_validator
+from sqlalchemy.exc import IntegrityError
 
 from app.api.deps import (
     get_auth_service,
@@ -71,6 +72,31 @@ class ProfileResponse(BaseModel):
     photo_url: str | None
     email: str | None
     created_at: datetime
+
+
+class ProfileUpdateRequest(BaseModel):
+    """Campos editables del perfil; los omitidos conservan su valor actual."""
+
+    username: str | None = Field(
+        default=None, min_length=3, max_length=50, pattern=r"^[A-Za-z0-9_]+$"
+    )
+    full_name: str | None = Field(default=None, min_length=1, max_length=120)
+    photo_url: HttpUrl | None = Field(default=None, max_length=2048)
+
+    @field_validator("full_name")
+    @classmethod
+    def full_name_must_not_be_blank(cls, value: str | None) -> str | None:
+        if value is not None and not value.strip():
+            raise ValueError("full_name no puede estar vacío")
+        return value.strip() if value is not None else None
+
+    @model_validator(mode="after")
+    def require_editable_field(self):
+        if not self.model_fields_set:
+            raise ValueError("Debe enviar al menos un campo editable")
+        if "username" in self.model_fields_set and self.username is None:
+            raise ValueError("username no puede ser null")
+        return self
 
 
 def _session_response(session: AuthSession) -> SessionResponse:
@@ -190,4 +216,49 @@ async def me(profile: User = Depends(get_current_profile)) -> ProfileResponse:
         photo_url=profile.photo_url,
         email=profile.email,
         created_at=profile.created_at,
+    )
+
+
+@router.patch(
+    "/me",
+    response_model=ProfileResponse,
+    summary="Actualizar el perfil del usuario autenticado",
+    description=(
+        "Actualiza parcialmente username, full_name y photo_url. La foto debe cargarse "
+        "mediante el flujo de URLs firmadas de /api/v1/posts/media-uploads y luego enviarse "
+        "como URL pública. id, email y created_at no son editables."
+    ),
+    responses={
+        401: {"description": "Falta un token de autenticación válido"},
+        409: {"description": "El username ya está asociado a otro perfil"},
+        422: {"description": "Campos o formatos no válidos"},
+    },
+)
+async def update_me(
+    payload: ProfileUpdateRequest,
+    profile: User = Depends(get_current_profile),
+    user_repo: UserRepository = Depends(get_user_repository),
+) -> ProfileResponse:
+    changes = payload.model_dump(exclude_unset=True)
+    if "username" in changes and changes["username"] != profile.username:
+        owner = await user_repo.get_by_username(changes["username"])
+        if owner is not None and owner.id != profile.id:
+            raise HTTPException(status_code=409, detail="El nombre de usuario ya está en uso")
+
+    profile.username = changes.get("username", profile.username)
+    profile.full_name = changes.get("full_name", profile.full_name)
+    photo_url = changes.get("photo_url", profile.photo_url)
+    profile.photo_url = str(photo_url) if photo_url is not None else None
+    try:
+        updated = await user_repo.update_profile(profile)
+    except IntegrityError as exc:
+        await user_repo.rollback()
+        raise HTTPException(status_code=409, detail="El nombre de usuario ya está en uso") from exc
+    return ProfileResponse(
+        id=updated.id,
+        username=updated.username,
+        full_name=updated.full_name,
+        photo_url=updated.photo_url,
+        email=updated.email,
+        created_at=updated.created_at,
     )

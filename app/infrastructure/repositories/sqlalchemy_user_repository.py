@@ -2,7 +2,7 @@
 
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.entities.user import User
@@ -56,6 +56,18 @@ class SQLAlchemyUserRepository(UserRepository):
         result = await self._session.execute(stmt)
         user_orm = result.scalar_one_or_none()
         return _to_entity(user_orm) if user_orm else None
+
+    async def update_profile(self, user: User) -> User:
+        stmt = (
+            update(UserModel)
+            .where(UserModel.id == user.id)
+            .values(username=user.username, full_name=user.full_name, photo_url=user.photo_url)
+        )
+        await self._session.execute(stmt)
+        await self._session.commit()
+        result = await self._session.execute(select(UserModel).where(UserModel.id == user.id))
+        user_orm = result.scalar_one()
+        return _to_entity(user_orm)
 
     async def rollback(self) -> None:
         await self._session.rollback()

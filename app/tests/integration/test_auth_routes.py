@@ -129,6 +129,63 @@ async def test_me_falls_back_to_generated_username(client):
     assert response.json()["username"] == f"user_{user_id.hex[:12]}"
 
 
+async def test_update_me_changes_editable_fields_only(client):
+    user_id = uuid.uuid4()
+    headers = {"Authorization": f"Bearer {token_for(user_id, username='before')}"}
+    original = (await client.get("/api/v1/auth/me", headers=headers)).json()
+
+    response = await client.patch(
+        "/api/v1/auth/me",
+        headers=headers,
+        json={
+            "username": "after_1",
+            "full_name": "Ana Pérez",
+            "photo_url": "https://cdn.example.com/ana.jpg",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        **original,
+        "username": "after_1",
+        "full_name": "Ana Pérez",
+        "photo_url": "https://cdn.example.com/ana.jpg",
+    }
+
+
+async def test_update_me_rejects_invalid_fields(client):
+    headers = {"Authorization": f"Bearer {token_for(uuid.uuid4(), username='valid')}"}
+    for payload in (
+        {"username": "x"},
+        {"username": "bad name"},
+        {"full_name": " "},
+        {"photo_url": "javascript:alert(1)"},
+        {"id": str(uuid.uuid4())},
+        {},
+    ):
+        response = await client.patch("/api/v1/auth/me", json=payload, headers=headers)
+        assert response.status_code == 422
+
+
+async def test_update_me_rejects_duplicate_username(client):
+    first_id, second_id = uuid.uuid4(), uuid.uuid4()
+    headers = {"Authorization": f"Bearer {token_for(first_id, username='first')}"}
+    await client.get(
+        "/api/v1/auth/me",
+        headers={"Authorization": f"Bearer {token_for(second_id, username='taken')}"},
+    )
+    response = await client.patch(
+        "/api/v1/auth/me", json={"username": "taken"}, headers=headers
+    )
+    assert response.status_code == 409
+    assert response.json()["detail"] == "El nombre de usuario ya está en uso"
+
+
+async def test_update_me_requires_authentication(client):
+    response = await client.patch("/api/v1/auth/me", json={"full_name": "Ana"})
+    assert response.status_code == 401
+
+
 async def test_me_recovers_when_username_is_claimed_before_insert(client):
     first_id, second_id = uuid.uuid4(), uuid.uuid4()
     first = await client.get(
