@@ -27,6 +27,9 @@ from app.infrastructure.db.session import async_session_factory
 from app.infrastructure.repositories.sqlalchemy_comment_repository import (
     SQLAlchemyCommentRepository,
 )
+from app.infrastructure.repositories.sqlalchemy_notification_repository import (
+    SQLAlchemyNotificationRepository,
+)
 from app.infrastructure.repositories.sqlalchemy_post_repository import SQLAlchemyPostRepository
 from app.infrastructure.repositories.sqlalchemy_user_repository import SQLAlchemyUserRepository
 from app.infrastructure.services.supabase_auth_service import SupabaseAuthService
@@ -92,6 +95,12 @@ async def get_comment_repository(
     session: AsyncSession = Depends(get_async_session),
 ) -> CommentRepository:
     return SQLAlchemyCommentRepository(async_session=session)
+
+
+async def get_notification_repository(
+    session: AsyncSession = Depends(get_async_session),
+) -> SQLAlchemyNotificationRepository:
+    return SQLAlchemyNotificationRepository(session)
 
 
 async def get_current_user(

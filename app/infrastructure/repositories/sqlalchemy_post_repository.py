@@ -5,7 +5,7 @@ consultas paginadas y parametrizadas para mantener la seguridad y el
 desacoplamiento de la lógica de negocio.
 """
 
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from sqlalchemy import Integer, delete, func, select
 from sqlalchemy.exc import IntegrityError
@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.domain.entities.post import Post
 from app.domain.repositories.post_repository import PostRepository
 from app.infrastructure.db.datetime_utils import as_utc
+from app.infrastructure.db.models.notification_model import NotificationModel
 from app.infrastructure.db.models.post_like_model import PostLikeModel
 from app.infrastructure.db.models.post_model import PostModel
 
@@ -132,10 +133,11 @@ class SQLAlchemyPostRepository(PostRepository):
         return {post_id: counts.get(post_id, 0) for post_id in post_ids}
 
     async def like(self, post_id: UUID, user_id: UUID) -> int | None:
-        post_exists = await self._session.execute(
-            select(PostModel.id).where(PostModel.id == post_id)
+        post_result = await self._session.execute(
+            select(PostModel.author_id).where(PostModel.id == post_id)
         )
-        if post_exists.scalar_one_or_none() is None:
+        recipient_id = post_result.scalar_one_or_none()
+        if recipient_id is None:
             return None
 
         existing = await self._session.execute(
@@ -144,7 +146,19 @@ class SQLAlchemyPostRepository(PostRepository):
             )
         )
         if existing.scalar_one_or_none() is None:
-            self._session.add(PostLikeModel(post_id=post_id, user_id=user_id))
+            like = PostLikeModel(id=uuid4(), post_id=post_id, user_id=user_id)
+            self._session.add(like)
+            if recipient_id != user_id:
+                self._session.add(
+                    NotificationModel(
+                        id=like.id,
+                        actor_id=user_id,
+                        recipient_id=recipient_id,
+                        post_id=post_id,
+                        type="like",
+                        source_like_id=like.id,
+                    )
+                )
             try:
                 await self._session.commit()
             except IntegrityError:

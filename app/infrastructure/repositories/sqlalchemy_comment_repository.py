@@ -9,6 +9,7 @@ from app.domain.entities.user import User
 from app.domain.repositories.comment_repository import CommentRepository
 from app.infrastructure.db.datetime_utils import as_utc
 from app.infrastructure.db.models.comment_model import CommentModel
+from app.infrastructure.db.models.notification_model import NotificationModel
 from app.infrastructure.db.models.post_model import PostModel
 from app.infrastructure.db.models.user_model import UserModel
 
@@ -51,9 +52,10 @@ class SQLAlchemyCommentRepository(CommentRepository):
         self, post_id: UUID, user_id: UUID, content: str, media: str | None = None
     ) -> Comment | None:
         post_exists = await self._session.execute(
-            select(PostModel.id).where(PostModel.id == post_id)
+            select(PostModel.author_id).where(PostModel.id == post_id)
         )
-        if post_exists.scalar_one_or_none() is None:
+        recipient_id = post_exists.scalar_one_or_none()
+        if recipient_id is None:
             return None
 
         comment = CommentModel(
@@ -61,6 +63,17 @@ class SQLAlchemyCommentRepository(CommentRepository):
             media=media, user_id=user_id
         )
         self._session.add(comment)
+        if recipient_id != user_id:
+            self._session.add(
+                NotificationModel(
+                    id=comment.id,
+                    actor_id=user_id,
+                    recipient_id=recipient_id,
+                    post_id=post_id,
+                    type="comment",
+                    source_comment_id=comment.id,
+                )
+            )
         await self._session.commit()
         return Comment(
             id=comment.id,
