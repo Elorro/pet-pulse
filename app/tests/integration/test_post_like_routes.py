@@ -84,3 +84,33 @@ async def test_delete_like_is_idempotent_and_only_removes_requesting_user(client
     absent = str(uuid.uuid4())
     missing = await client.delete(f"/api/v1/posts/{absent}/like", headers=liker_headers)
     assert missing.status_code == 404
+
+
+async def test_own_and_foreign_post_likes_return_current_user_state_and_count(client):
+    owner_id, other_id = uuid.uuid4(), uuid.uuid4()
+    owner_headers = {"Authorization": f"Bearer {token_for(owner_id)}"}
+    other_headers = {"Authorization": f"Bearer {token_for(other_id)}"}
+    post = await client.post("/api/v1/posts/", json={"content": "hola"}, headers=owner_headers)
+    post_id = post.json()["id"]
+
+    own_like = await client.post(f"/api/v1/posts/{post_id}/like", headers=owner_headers)
+    assert own_like.status_code == 200
+    assert own_like.json() == {"post_id": post_id, "like_count": 1, "liked": True}
+
+    foreign_like = await client.post(f"/api/v1/posts/{post_id}/like", headers=other_headers)
+    assert foreign_like.status_code == 200
+    assert foreign_like.json() == {"post_id": post_id, "like_count": 2, "liked": True}
+
+    owner_status = await client.get(f"/api/v1/posts/{post_id}/like", headers=owner_headers)
+    other_status = await client.get(f"/api/v1/posts/{post_id}/like", headers=other_headers)
+    assert owner_status.json() == {"post_id": post_id, "like_count": 2, "liked": True}
+    assert other_status.json() == {"post_id": post_id, "like_count": 2, "liked": True}
+
+    foreign_unlike = await client.delete(f"/api/v1/posts/{post_id}/like", headers=other_headers)
+    assert foreign_unlike.status_code == 200
+    assert foreign_unlike.json() == {"post_id": post_id, "like_count": 1, "liked": False}
+
+    final_owner_status = await client.get(
+        f"/api/v1/posts/{post_id}/like", headers=owner_headers
+    )
+    assert final_owner_status.json() == {"post_id": post_id, "like_count": 1, "liked": True}

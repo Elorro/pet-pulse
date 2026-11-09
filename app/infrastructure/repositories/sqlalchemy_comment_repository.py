@@ -63,6 +63,9 @@ class SQLAlchemyCommentRepository(CommentRepository):
             media=media, user_id=user_id
         )
         self._session.add(comment)
+        # The notification has a foreign key to this comment, so persist the
+        # source row in the current transaction before adding the notification.
+        await self._session.flush()
         if recipient_id != user_id:
             self._session.add(
                 NotificationModel(
