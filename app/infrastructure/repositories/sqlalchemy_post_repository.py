@@ -148,18 +148,21 @@ class SQLAlchemyPostRepository(PostRepository):
         if existing.scalar_one_or_none() is None:
             like = PostLikeModel(id=uuid4(), post_id=post_id, user_id=user_id)
             self._session.add(like)
-            if recipient_id != user_id:
-                self._session.add(
-                    NotificationModel(
-                        id=like.id,
-                        actor_id=user_id,
-                        recipient_id=recipient_id,
-                        post_id=post_id,
-                        type="like",
-                        source_like_id=like.id,
-                    )
-                )
             try:
+                # Materialize the source row before inserting the notification
+                # that has a foreign key to it. Both remain in this transaction.
+                await self._session.flush()
+                if recipient_id != user_id:
+                    self._session.add(
+                        NotificationModel(
+                            id=like.id,
+                            actor_id=user_id,
+                            recipient_id=recipient_id,
+                            post_id=post_id,
+                            type="like",
+                            source_like_id=like.id,
+                        )
+                    )
                 await self._session.commit()
             except IntegrityError:
                 # Una solicitud concurrente pudo insertar el mismo like primero.
