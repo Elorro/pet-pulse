@@ -1,12 +1,15 @@
 """Pruebas de integración para generación y aislamiento de notificaciones."""
 
 import uuid
+from datetime import UTC, datetime, timedelta
 
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import update
 
 from app.core.auth import get_token_verifier
 from app.infrastructure.db.base import Base
+from app.infrastructure.db.models.notification_model import NotificationModel
 from app.infrastructure.db.session import engine
 from app.main import app
 from app.tests.integration.test_auth_routes import FakeVerifier, token_for
@@ -39,6 +42,19 @@ async def test_like_comment_notifications_and_owner_isolation(client):
         headers=actor_headers,
     )
     await client.post(f"/api/v1/posts/{post_id}/like", headers=owner_headers)
+
+    created_at = datetime(2026, 1, 1, tzinfo=UTC)
+    async with engine.begin() as conn:
+        await conn.execute(
+            update(NotificationModel)
+            .where(NotificationModel.type == "like")
+            .values(created_at=created_at)
+        )
+        await conn.execute(
+            update(NotificationModel)
+            .where(NotificationModel.type == "comment")
+            .values(created_at=created_at + timedelta(microseconds=1))
+        )
 
     notifications = await client.get("/api/v1/notifications/", headers=owner_headers)
     assert notifications.status_code == 200

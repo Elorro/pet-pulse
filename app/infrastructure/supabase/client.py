@@ -1,9 +1,8 @@
 """Creación de clientes Supabase aislados por solicitud."""
 
+from app.core.config import get_settings
 from supabase import Client, create_client
 from supabase.client import ClientOptions
-
-from app.core.config import get_settings
 
 
 def create_supabase_client() -> Client:

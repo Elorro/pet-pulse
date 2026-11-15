@@ -7,7 +7,6 @@ peticiones: el SDK guarda la sesión del último `sign_in` en el cliente.
 import logging
 from uuid import UUID
 
-from supabase import AsyncClient, AsyncClientOptions, acreate_client
 from supabase_auth.errors import AuthApiError, AuthError
 from supabase_auth.types import Session
 
@@ -17,6 +16,7 @@ from app.application.interfaces.auth_service import (
     AuthSession,
     SignUpResult,
 )
+from supabase import AsyncClient, AsyncClientOptions, acreate_client
 
 logger = logging.getLogger(__name__)
 
