@@ -792,6 +792,301 @@
         }
       }
     },
+    "/api/v1/profiles/{profile_id}/follow": {
+      "put": {
+        "tags": [
+          "profiles"
+        ],
+        "summary": "Seguir un perfil",
+        "operationId": "follow_profile_api_v1_profiles__profile_id__follow_put",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "profile_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Profile Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FollowMutationResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "No es posible seguir el propio perfil"
+          },
+          "401": {
+            "description": "Falta un token de autenticación válido"
+          },
+          "404": {
+            "description": "No existe el perfil"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "profiles"
+        ],
+        "summary": "Dejar de seguir un perfil",
+        "operationId": "unfollow_profile_api_v1_profiles__profile_id__follow_delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "profile_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Profile Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "description": "No es posible dejar de seguir el propio perfil"
+          },
+          "401": {
+            "description": "Falta un token de autenticación válido"
+          },
+          "404": {
+            "description": "No existe el perfil"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/profiles/following": {
+      "get": {
+        "tags": [
+          "profiles"
+        ],
+        "summary": "Listar perfiles que sigue el usuario autenticado",
+        "operationId": "list_following_api_v1_profiles_following_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FollowProfile"
+                  },
+                  "title": "Response List Following Api V1 Profiles Following Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Falta un token de autenticación válido"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/profiles/followers": {
+      "get": {
+        "tags": [
+          "profiles"
+        ],
+        "summary": "Listar perfiles que siguen al usuario autenticado",
+        "operationId": "list_followers_api_v1_profiles_followers_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FollowProfile"
+                  },
+                  "title": "Response List Followers Api V1 Profiles Followers Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Falta un token de autenticación válido"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/profiles/{profile_id}/follow-status": {
+      "get": {
+        "tags": [
+          "profiles"
+        ],
+        "summary": "Consultar estado de seguimiento",
+        "operationId": "follow_status_api_v1_profiles__profile_id__follow_status_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "profile_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Profile Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FollowStatusResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Falta un token de autenticación válido"
+          },
+          "404": {
+            "description": "No existe el perfil"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/notifications/": {
       "get": {
         "tags": [
@@ -1099,6 +1394,97 @@
           "author"
         ],
         "title": "CommentResponse"
+      },
+      "FollowMutationResponse": {
+        "properties": {
+          "profile_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Profile Id"
+          },
+          "following": {
+            "type": "boolean",
+            "title": "Following"
+          },
+          "created": {
+            "type": "boolean",
+            "title": "Created"
+          }
+        },
+        "type": "object",
+        "required": [
+          "profile_id",
+          "following",
+          "created"
+        ],
+        "title": "FollowMutationResponse"
+      },
+      "FollowProfile": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "full_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Full Name"
+          },
+          "photo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Photo Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "username",
+          "full_name",
+          "photo_url"
+        ],
+        "title": "FollowProfile"
+      },
+      "FollowStatusResponse": {
+        "properties": {
+          "profile_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Profile Id"
+          },
+          "following": {
+            "type": "boolean",
+            "title": "Following"
+          },
+          "followed_by": {
+            "type": "boolean",
+            "title": "Followed By"
+          }
+        },
+        "type": "object",
+        "required": [
+          "profile_id",
+          "following",
+          "followed_by"
+        ],
+        "title": "FollowStatusResponse"
       },
       "HTTPValidationError": {
         "properties": {
