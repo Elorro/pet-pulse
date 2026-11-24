@@ -27,6 +27,9 @@ from app.infrastructure.db.session import async_session_factory
 from app.infrastructure.repositories.sqlalchemy_comment_repository import (
     SQLAlchemyCommentRepository,
 )
+from app.infrastructure.repositories.sqlalchemy_follow_repository import (
+    SQLAlchemyFollowRepository,
+)
 from app.infrastructure.repositories.sqlalchemy_notification_repository import (
     SQLAlchemyNotificationRepository,
 )
@@ -95,6 +98,12 @@ async def get_comment_repository(
     session: AsyncSession = Depends(get_async_session),
 ) -> CommentRepository:
     return SQLAlchemyCommentRepository(async_session=session)
+
+
+async def get_follow_repository(
+    session: AsyncSession = Depends(get_async_session),
+) -> SQLAlchemyFollowRepository:
+    return SQLAlchemyFollowRepository(session)
 
 
 async def get_notification_repository(

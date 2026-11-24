@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import RedirectResponse, Response
 
 import app.infrastructure.db.models
-from app.api.v1.routes import auth, notifications, posts
+from app.api.v1.routes import auth, notifications, posts, profiles
 from app.core.config import get_settings
 
 settings = get_settings()
@@ -84,4 +84,5 @@ async def add_security_headers(
 # ---------------------------------------------------------------------------
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(posts.router, prefix="/api/v1")
+app.include_router(profiles.router, prefix="/api/v1")
 app.include_router(notifications.router, prefix="/api/v1")
