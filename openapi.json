@@ -792,6 +792,138 @@
         }
       }
     },
+    "/api/v1/profiles/search": {
+      "get": {
+        "tags": [
+          "profiles"
+        ],
+        "summary": "Buscar perfiles por username o nombre visible",
+        "operationId": "search_profiles_api_v1_profiles_search_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120,
+              "title": "Q"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PublicProfile"
+                  },
+                  "title": "Response Search Profiles Api V1 Profiles Search Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Falta un token de autenticación válido"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/profiles/username/{username}": {
+      "get": {
+        "tags": [
+          "profiles"
+        ],
+        "summary": "Consultar un perfil por username",
+        "operationId": "get_profile_by_username_api_v1_profiles_username__username__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "username",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Username"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProfile"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Falta un token de autenticación válido"
+          },
+          "404": {
+            "description": "No existe el perfil"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/profiles/{profile_id}/follow": {
       "put": {
         "tags": [
@@ -1684,6 +1816,11 @@
           },
           "type": {
             "type": "string",
+            "enum": [
+              "like",
+              "comment",
+              "follow"
+            ],
             "title": "Type"
           },
           "created_at": {
@@ -1707,7 +1844,14 @@
             "$ref": "#/components/schemas/NotificationActor"
           },
           "post": {
-            "$ref": "#/components/schemas/NotificationPost"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NotificationPost"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "comment_content": {
             "anyOf": [
@@ -2026,6 +2170,49 @@
         "type": "object",
         "title": "ProfileUpdateRequest",
         "description": "Campos editables del perfil; los omitidos conservan su valor actual."
+      },
+      "PublicProfile": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
+          "full_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Full Name"
+          },
+          "photo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Photo Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "username",
+          "full_name",
+          "photo_url"
+        ],
+        "title": "PublicProfile"
       },
       "RefreshRequest": {
         "properties": {

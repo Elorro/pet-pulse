@@ -35,6 +35,13 @@ class FollowStatusResponse(BaseModel):
     followed_by: bool
 
 
+class PublicProfile(BaseModel):
+    id: uuid.UUID
+    username: str
+    full_name: str | None
+    photo_url: str | None
+
+
 def _profile(user: UserModel) -> FollowProfile:
     return FollowProfile(
         id=user.id,
@@ -42,6 +49,48 @@ def _profile(user: UserModel) -> FollowProfile:
         full_name=user.full_name,
         photo_url=user.photo_url,
     )
+
+
+def _public_profile(user: User) -> PublicProfile:
+    return PublicProfile(
+        id=user.id, username=user.username, full_name=user.full_name, photo_url=user.photo_url
+    )
+
+
+@router.get(
+    "/search",
+    response_model=list[PublicProfile],
+    summary="Buscar perfiles por username o nombre visible",
+    responses={401: {"description": "Falta un token de autenticación válido"}},
+)
+async def search_profiles(
+    q: str = Query(..., min_length=1, max_length=120),
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    _user: User = Depends(get_current_profile),
+    repository: UserRepository = Depends(get_user_repository),
+) -> list[PublicProfile]:
+    return [_public_profile(row) for row in await repository.search_profiles(q, limit, offset)]
+
+
+@router.get(
+    "/username/{username}",
+    response_model=PublicProfile,
+    summary="Consultar un perfil por username",
+    responses={
+        401: {"description": "Falta un token de autenticación válido"},
+        404: {"description": "No existe el perfil"},
+    },
+)
+async def get_profile_by_username(
+    username: str,
+    _user: User = Depends(get_current_profile),
+    repository: UserRepository = Depends(get_user_repository),
+) -> PublicProfile:
+    profile = await repository.get_by_username(username)
+    if profile is None:
+        raise HTTPException(status_code=404, detail="No existe el perfil")
+    return _public_profile(profile)
 
 
 @router.put(

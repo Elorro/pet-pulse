@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
@@ -28,11 +29,11 @@ class NotificationPost(BaseModel):
 
 class NotificationResponse(BaseModel):
     id: uuid.UUID
-    type: str
+    type: Literal["like", "comment", "follow"]
     created_at: datetime
     read_at: datetime | None
     actor: NotificationActor
-    post: NotificationPost
+    post: NotificationPost | None
     comment_content: str | None
 
 
@@ -64,10 +65,14 @@ async def list_notifications(
                 full_name=row["actor"].full_name,
                 photo_url=row["actor"].photo_url,
             ),
-            post=NotificationPost(
-                id=row["post"].id,
-                content=row["post"].content,
-                media_url=row["post"].media_url,
+            post=(
+                NotificationPost(
+                    id=row["post"].id,
+                    content=row["post"].content,
+                    media_url=row["post"].media_url,
+                )
+                if row["post"] is not None
+                else None
             ),
             comment_content=row["comment_content"],
         )

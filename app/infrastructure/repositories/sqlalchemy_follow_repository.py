@@ -1,12 +1,13 @@
 """Acceso a la relación de seguimiento mediante SQLAlchemy asíncrono."""
 
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from sqlalchemy import delete, desc, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infrastructure.db.models.follow_model import FollowModel
+from app.infrastructure.db.models.notification_model import NotificationModel
 from app.infrastructure.db.models.user_model import UserModel
 
 
@@ -20,6 +21,15 @@ class SQLAlchemyFollowRepository:
         if existing is not None:
             return False
         self._session.add(FollowModel(follower_id=follower_id, following_id=following_id))
+        self._session.add(
+            NotificationModel(
+                id=uuid4(),
+                actor_id=follower_id,
+                recipient_id=following_id,
+                post_id=None,
+                type="follow",
+            )
+        )
         try:
             await self._session.commit()
         except IntegrityError:
