@@ -18,7 +18,7 @@ class SQLAlchemyNotificationRepository:
         stmt = (
             select(NotificationModel, UserModel, PostModel, CommentModel.text)
             .join(UserModel, UserModel.id == NotificationModel.actor_id)
-            .join(PostModel, PostModel.id == NotificationModel.post_id)
+            .outerjoin(PostModel, PostModel.id == NotificationModel.post_id)
             .outerjoin(CommentModel, CommentModel.id == NotificationModel.source_comment_id)
             .where(NotificationModel.recipient_id == user_id)
             .order_by(NotificationModel.created_at.desc(), NotificationModel.id.desc())

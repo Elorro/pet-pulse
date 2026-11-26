@@ -112,3 +112,41 @@ async def test_unfollow_is_idempotent_self_follow_and_missing_profile_are_reject
     unauthenticated = await client.get("/api/v1/profiles/following")
     assert unauthenticated.status_code == 401
 
+
+async def test_follow_creates_one_notification_and_self_follow_creates_none(client):
+    follower_id, target_id = uuid.uuid4(), uuid.uuid4()
+    await _profile(client, follower_id, "seguidor")
+    await _profile(client, target_id, "seguido")
+    headers = _headers(follower_id)
+
+    created = await client.put(f"/api/v1/profiles/{target_id}/follow", headers=headers)
+    repeated = await client.put(f"/api/v1/profiles/{target_id}/follow", headers=headers)
+    assert created.json()["created"] is True
+    assert repeated.json()["created"] is False
+
+    inbox = await client.get("/api/v1/notifications/", headers=_headers(target_id))
+    assert len(inbox.json()) == 1
+    row = inbox.json()[0]
+    assert row["type"] == "follow"
+    assert row["actor"]["id"] == str(follower_id)
+    assert row["post"] is None
+    assert row["comment_content"] is None
+
+    self_follow = await client.put(f"/api/v1/profiles/{follower_id}/follow", headers=headers)
+    assert self_follow.status_code == 400
+    follower_inbox = await client.get(
+        "/api/v1/notifications/", headers=_headers(follower_id)
+    )
+    assert len(follower_inbox.json()) == 0
+
+    read = await client.patch(
+        f"/api/v1/notifications/{row['id']}/read", headers=_headers(target_id)
+    )
+    assert read.status_code == 204
+    unread = await client.get(
+        "/api/v1/notifications/unread-count", headers=_headers(target_id)
+    )
+    assert unread.json() == {
+        "count": 0
+    }
+

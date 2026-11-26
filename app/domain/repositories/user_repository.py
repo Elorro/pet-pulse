@@ -35,6 +35,11 @@ class UserRepository(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
+    async def search_profiles(self, query: str, limit: int, offset: int) -> list[User]:
+        """Busca perfiles por username o nombre visible."""
+        raise NotImplementedError
+
+    @abc.abstractmethod
     async def update_profile(self, user: User) -> User:
         """Actualiza solo username, full_name y photo_url del perfil existente."""
         raise NotImplementedError

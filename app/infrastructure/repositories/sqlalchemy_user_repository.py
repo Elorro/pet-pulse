@@ -2,7 +2,7 @@
 
 from uuid import UUID
 
-from sqlalchemy import select, update
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.entities.user import User
@@ -56,6 +56,22 @@ class SQLAlchemyUserRepository(UserRepository):
         result = await self._session.execute(stmt)
         user_orm = result.scalar_one_or_none()
         return _to_entity(user_orm) if user_orm else None
+
+    async def search_profiles(self, query: str, limit: int, offset: int) -> list[User]:
+        pattern = f"%{query.strip()}%"
+        stmt = (
+            select(UserModel)
+            .where(
+                or_(
+                    func.lower(UserModel.username).like(func.lower(pattern)),
+                    func.lower(UserModel.full_name).like(func.lower(pattern)),
+                )
+            )
+            .order_by(UserModel.username, UserModel.id)
+            .limit(limit)
+            .offset(offset)
+        )
+        return [_to_entity(row) for row in (await self._session.scalars(stmt)).all()]
 
     async def update_profile(self, user: User) -> User:
         stmt = (

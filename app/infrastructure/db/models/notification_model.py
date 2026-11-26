@@ -23,8 +23,8 @@ class NotificationModel(Base):
     recipient_id: Mapped[UUID] = mapped_column(
         Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
-    post_id: Mapped[UUID] = mapped_column(
-        Uuid, ForeignKey("posts.id", ondelete="CASCADE"), nullable=False
+    post_id: Mapped[UUID | None] = mapped_column(
+        Uuid, ForeignKey("posts.id", ondelete="CASCADE"), nullable=True
     )
     type: Mapped[str] = mapped_column(Text, nullable=False)
     source_like_id: Mapped[UUID | None] = mapped_column(
